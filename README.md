@@ -1,6 +1,6 @@
 # 🎬 可灵 AI 抖音广告视频 - 一键成片
 
-> **一句话说明**：输入产品信息，运行一条命令，自动生成广告脚本 + 调用可灵 API 生成角色定妆照 + 5 个分镜片段 + 自动拼接转场字幕 BGM 配音调色 → 输出抖音标准最终成片。
+> **一句话说明**：输入产品信息，运行一条命令，自动生成广告脚本（支持 LLM 大模型文案）+ 调用可灵 API 生成角色定妆照 + 5 个分镜片段（并行 best-of 择优）+ 自动拼接转场字幕 BGM 配音（豆包 TTS / macOS say）调色稳像 → 输出抖音标准最终成片。
 
 ---
 
@@ -9,16 +9,18 @@
 ```
 kling-ad-automation/
 ├── config.py                     # 配置文件（API Key、参数默认值、电影风格、调色预设、钩子模板、品牌配置）
-├── kling_client.py               # 可灵 API 客户端（图片/视频生成）
-├── video_merger.py               # 视频拼接模块（ffmpeg 封装：拼接/字幕/调色/SFX/封面/水印/卡点）
-├── one_click_create.py           # ⭐ 一键成片主脚本（支持模板保存/加载、A/B版本、抖音适配）
+├── kling_client.py               # 可灵 API 客户端（JWT 鉴权 + Bearer 兼容，图片/视频生成）
+├── video_merger.py               # 视频拼接模块（ffmpeg 封装：拼接/字幕/调色/SFX/封面/水印/卡点/稳像）
+├── one_click_create.py           # ⭐ 一键成片主脚本（模板/A·B版本/并行 best-of/preview/serial）
 ├── batch.py                      # ⭐ 批量生成脚本（YAML 配置 + 并发控制）
 ├── ad_script.py                  # ⭐ 广告脚本生成（5段式文案、痛点库、卖点拆解、标题/话题标签）
 ├── bgm_client.py                 # ⭐ BGM 背景音乐（FreeToUse API、风格匹配、BPM匹配、淡入淡出）
-├── tts_client.py                 # ⭐ AI 口播配音（macOS say、5种风格、5种音色、字幕对齐）
-├── douyin_adapter.py             # ⭐ 抖音平台适配（字幕安全区、节奏优化、规格配置）
+├── tts_client.py                 # ⭐ AI 口播配音（豆包 TTS V3 / macOS say 降级、5种风格、5种音色）
+├── douyin_adapter.py             # ⭐ 抖音平台适配（字幕安全区、节奏模板、规格配置）
 ├── compliance_checker.py         # ⭐ 广告合规检测（极限词/敏感词、风险等级、替换建议）
 ├── quality_checker.py            # ⭐ 视频质量检测（清晰度/黑帧/冻结帧/音频质量/人脸初筛）
+├── cinematic_language.py         # ⭐ 深度电影语言模块（18种风格精细化 Prompt 构建）
+├── llm_client.py                 # ⭐ LLM 文案生成客户端（OpenAI 兼容，--no-llm 可降级模板）
 ├── tests/                        # 单元测试目录
 │   └── test_core.py
 ├── references/                   # 参考文档
@@ -32,11 +34,11 @@ kling-ad-automation/
 │   │   └── character_ref_template.md
 │   └── clips/
 │       └── clip_prompts_template.md
-├── templates/                    # 工作流模板
-│   └── editing_workflow_guide.md # 剪映拼接详细指南
+├── templates/                    # 工作流模板 + 产品 JSON 模板
+│   └── editing_workflow_guide.md
 ├── output/                       # 输出目录
 │   ├── character_ref/            # 角色定妆照
-│   ├── clips/                    # 分镜片段
+│   ├── clips/                    # 分镜片段（含 best-of 候选）
 │   ├── final/                    # 最终成片
 │   ├── batch/                    # 批量生成输出
 │   ├── bgm_cache/                # BGM 本地缓存
@@ -49,13 +51,13 @@ kling-ad-automation/
 
 ---
 
-## 🚀 快速开始（3 步）
+## 🚀 快速开始（4 步）
 
 ### 第一步：安装依赖
 
 ```bash
 # 安装 Python 依赖
-pip install requests
+pip install -r requirements.txt
 
 # 安装 ffmpeg（用于视频拼接）
 # macOS
@@ -67,21 +69,39 @@ sudo apt install ffmpeg
 
 ### 第二步：配置 API Key
 
-打开 `config.py`，填入你的可灵 API Key：
-
-```python
-KLING_API_KEY = "your_api_key_here"
-```
-
-或设置环境变量：
+复制 `.env.example` 为 `.env`，按需填入以下配置：
 
 ```bash
-export KLING_API_KEY="your_api_key_here"
+cp .env.example .env
 ```
 
-> **获取 API Key**：前往 [可灵 AI 开放平台](https://app.klingai.com/cn/dev) 申请。
+```ini
+# ── 可灵 API（二选一）────────────────────────────────
+# 【推荐】JWT 鉴权（AccessKey + SecretKey）
+KLING_ACCESS_KEY=your_access_key_here
+KLING_SECRET_KEY=your_secret_key_here
 
-### 第三步：一键成片（基础版）
+# 【兼容】旧版 Bearer 鉴权
+KLING_API_KEY=your-api-key-kling
+
+# ── 豆包 TTS（可选，不填自动降级到 macOS say）────────
+VOLC_API_KEY=your_volc_api_key_here
+
+# ── LLM 文案生成（可选，不填走内置模板）─────────────
+LLM_API_KEY=your_llm_api_key_here
+LLM_BASE_URL=https://your-llm-endpoint/v1
+LLM_MODEL=your_model_name
+```
+
+> **获取 Key**：可灵 → [开放平台](https://app.klingai.com/cn/dev)，豆包 TTS → [火山引擎语音控制台](https://console.volcengine.com/speech/new/setting/apikeys)
+
+### 第三步：安装 Python 依赖
+
+```bash
+pip install -r requirements.txt
+```
+
+### 第四步：一键成片（基础版）
 
 ```bash
 cd kling-ad-automation
@@ -89,19 +109,20 @@ python one_click_create.py
 ```
 
 按提示输入产品信息，脚本会自动完成：
-1. 生成完整广告脚本（痛点+卖点+CTA）
+1. LLM / 模板生成完整广告脚本（痛点+卖点+CTA）
 2. 生成角色定妆照
-3. 生成 5 个分镜视频片段
-4. 自动拼接 + 转场 + 卡点
-5. 添加字幕动画 + 关键词高亮
-6. 智能选曲 BGM + 淡入淡出
-7. AI 口播配音（可选）
-8. 后期调色（电影感预设）
-9. 生成封面图 + 品牌水印
-10. 质量检测 + 合规检测
-11. 导出抖音标准成片 + 标题/话题标签
+3. 并行生成 5 个分镜视频片段（best-of 多候选自动择优）
+4. 视频稳定化 + 去闪烁
+5. 自动拼接 + 转场 + 卡点对齐
+6. 添加字幕动画 + 关键词高亮
+7. 智能选曲 BGM + 淡入淡出
+8. AI 口播配音（豆包 TTS / macOS say，可选）
+9. 后期调色（电影感预设）
+10. 生成封面图 + 品牌水印
+11. 质量检测 + 合规检测
+12. 导出抖音标准成片 + 标题/话题标签
 
-### 第四步：电影风格增强（推荐）
+### 第五步：电影风格增强（推荐）
 
 为视频注入经典电影运镜/转场风格，让 AI 生成质量提升一档：
 
@@ -373,7 +394,8 @@ python one_click_create.py --ab-versions 2 --product-image product.jpg --style k
 | `--duration` | `5` | 单片段时长（秒） |
 | `--mode` | `std` | 生成模式：`std` / `pro` / `4k` |
 | `--aspect-ratio` | `9:16` | 画面比例 |
-| `--target-duration` | - | 目标总时长（秒）：`7` / `15` / `30` / `60`，自动适配片段数 |
+| `--target-duration` | - | 目标总时长（秒）：`10` / `15` / `20` / `25` / `30` / `60` |
+| `--rhythm-style` | `moderate` | 节奏风格：`fast` / `moderate` / `cinematic` |
 | `--dual-output` | - | 同时生成 9:16 和 16:9 两个版本 |
 
 ### 一致性控制
@@ -394,15 +416,40 @@ python one_click_create.py --ab-versions 2 --product-image product.jpg --style k
 | `--script-style` | `standard` | 广告脚本风格（用 `--list-script-styles` 查看） |
 | `--list-script-styles` | - | 列出所有广告脚本风格 |
 | `--ab-versions` | `1` | A/B 测试版本数量（1-3） |
+| `--ab-dim` | - | A/B 测试维度：`hook` / `style` / `script` |
 
 ### AI 配音
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--voiceover` | - | 启用 AI 口播配音 |
+| `--voiceover` | - | 启用 AI 口播配音（豆包 TTS 优先，降级 macOS say） |
 | `--voiceover-style` | `standard` | 口播风格：standard / emotional / energetic / professional / storytelling |
 | `--voice` | `energetic_female` | 音色：female_young / female_warm / male_pro / male_magnetic / energetic_female |
 | `--list-voices` | - | 列出所有音色预设 |
+
+### 生成质量控制
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--best-of` | `2` | 每个分镜生成候选数，自动质量择优 |
+| `--quality-frames` | `12` | best-of 择优时的抽帧数量 |
+| `--keep-candidates` | - | 保留未被选中的候选片段 |
+| `--min-clips` | `3` | 最少成功片段数，低于此数则终止 |
+| `--max-workers` | `4` | 并行生成最大线程数 |
+| `--stabilize` / `--no-stabilize` | 开启 | 视频稳定化 + 去闪烁 |
+| `--multi-shot` | - | 启用可灵多镜头模式（intelligence 分镜） |
+| `--kling-model` | - | 指定可灵模型版本（如 `kling-v2-master`） |
+
+### 执行模式
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--preview` / `-p` | - | 快速预览：仅生成第 1 段，跳过后期，用于快速试错 |
+| `--serial` | - | 强制串行生成（每段用上一段尾帧，极致一致性） |
+| `--strict` / `--no-strict` | 开启 | 严格模式：关键步骤失败时抛出异常而非静默降级 |
+| `--force` | - | 强制跳过 high 风险合规拦截（critical 始终拦截） |
+| `--no-llm` | - | 禁用 LLM 文案生成，强制走内置模板 |
+| `--brand-intro-outro` | - | 在成片首尾加入品牌开场（2s）和收尾动画（1.5s） |
 
 ### 模板与其他
 
@@ -416,17 +463,25 @@ python one_click_create.py --ab-versions 2 --product-image product.jpg --style k
 
 ## ⚙️ 配置说明
 
-### config.py 主要参数
+所有敏感配置通过 `.env` 文件注入（见 `.env.example`），非敏感参数可在 `config.py` 中调整。
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `KLING_API_KEY` | - | 可灵 API Key（必填） |
-| `KLING_BASE_URL` | `https://api-beijing.klingai.com` | API 地址 |
-| `DEFAULT_VIDEO_DURATION` | `5` | 单片段时长（秒） |
-| `DEFAULT_ASPECT_RATIO` | `9:16` | 画面比例（竖屏） |
-| `DEFAULT_MODE` | `std` | 生成模式（std/pro/4k） |
-| `OUTPUT_RESOLUTION` | `1080x1920` | 输出分辨率 |
-| `OUTPUT_FPS` | `30` | 输出帧率 |
+### 主要配置项
+
+| 参数 | 来源 | 默认值 | 说明 |
+|------|------|--------|------|
+| `KLING_ACCESS_KEY` | `.env` | - | 可灵 JWT AccessKey（推荐） |
+| `KLING_SECRET_KEY` | `.env` | - | 可灵 JWT SecretKey（推荐） |
+| `KLING_API_KEY` | `.env` | - | 旧版 Bearer API Key（兼容） |
+| `KLING_BASE_URL` | `.env` / `config.py` | `https://api-beijing.klingai.com` | API 地址 |
+| `VOLC_API_KEY` | `.env` | - | 豆包 TTS API Key（可选，不填降级 macOS say） |
+| `LLM_API_KEY` | `.env` | - | LLM 文案生成 API Key（可选） |
+| `LLM_BASE_URL` | `.env` | - | LLM 接口地址（OpenAI 兼容） |
+| `LLM_MODEL` | `.env` | - | LLM 模型名称 |
+| `DEFAULT_VIDEO_DURATION` | `config.py` | `5` | 单片段时长（秒） |
+| `DEFAULT_ASPECT_RATIO` | `config.py` | `9:16` | 画面比例（竖屏） |
+| `DEFAULT_MODE` | `config.py` | `std` | 生成模式（std/pro/4k） |
+| `OUTPUT_RESOLUTION` | `config.py` | `1080x1920` | 输出分辨率 |
+| `OUTPUT_FPS` | `config.py` | `30` | 输出帧率 |
 
 ### 产品类型预设
 
@@ -543,15 +598,15 @@ python one_click_create.py --voiceover --voice energetic_female
 
 ### 5 种音色
 
-| 音色 key | 名称 | 系统音色 |
-|----------|------|----------|
-| `female_young` | 年轻女声 | Tingting |
-| `female_warm` | 温暖女声 | Sandy |
-| `male_pro` | 专业男声 | Eddy |
-| `male_magnetic` | 磁性男声 | Reed |
-| `energetic_female` | 活力女声 | Flo |
+| 音色 key | 名称 | 豆包音色 / macOS 降级 |
+|----------|------|----------------------|
+| `female_young` | 年轻女声 | zh_female_shuangkuaisisi / Tingting |
+| `female_warm` | 温暖女声 | zh_female_tianmeixiaoyuan / Sandy |
+| `male_pro` | 专业男声 | zh_male_jingqiangkanye / Eddy |
+| `male_magnetic` | 磁性男声 | zh_male_qingshuaige / Reed |
+| `energetic_female` | 活力女声 | zh_female_renxiaobao / Flo |
 
-> ⚠️ 基于 macOS 系统 `say` 命令，免费离线可用。如需更高质量可扩展第三方 TTS API。
+> **优先级**：配置了 `VOLC_API_KEY` 时自动使用豆包 TTS V3（`seed-tts-2.0`），否则降级到 macOS `say`（离线免费）。
 
 ---
 
@@ -1158,6 +1213,24 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 
 ## 📌 更新日志
 
+### v7.0.0 (2026-07-02) - LLM 文案 + 豆包 TTS + 生成质量升级
+- ✅ 新增 `llm_client.py`：接入 LLM 大模型生成广告文案（OpenAI 兼容接口），`--no-llm` 可降级内置模板
+- ✅ 新增 `cinematic_language.py`：深度电影语言模块，18 种风格 Prompt 精细化构建（`build_cinematic_prompt_elements`）
+- ✅ TTS 升级为豆包大模型语音合成 V3（`seed-tts-2.0`），配置 `VOLC_API_KEY` 即启用，否则自动降级 macOS say
+- ✅ 鉴权升级：支持 JWT（AccessKey + SecretKey）+ 旧版 Bearer 双模式，通过 `.env` 注入
+- ✅ 新增 `--best-of` 参数：每个分镜并行生成多候选，自动质量择优
+- ✅ 新增 `--preview` / `-p`：快速预览模式，仅生成第 1 段，跳过后期
+- ✅ 新增 `--serial`：强制串行生成，每段用上一段尾帧实现极致一致性
+- ✅ 新增 `--stabilize` / `--no-stabilize`：视频稳定化 + 去闪烁（默认开启）
+- ✅ 新增 `--rhythm-style`：节奏风格选择（fast / moderate / cinematic）
+- ✅ 新增 `--multi-shot`：启用可灵多镜头 intelligence 分镜模式
+- ✅ 新增 `--kling-model`：可指定可灵模型版本（如 `kling-v2-master`）
+- ✅ 新增 `--strict` / `--no-strict`：严格模式控制，防止关键步骤静默降级
+- ✅ 新增 `--brand-intro-outro`：成片首尾自动插入品牌开场（2s）和收尾动画（1.5s）
+- ✅ 新增 `--ab-dim`：A/B 测试维度精细化（hook / style / script）
+- ✅ `--target-duration` 新增 10/20/25 秒选项，配合 `--rhythm-style` 自动适配节奏模板
+- ✅ 所有敏感配置迁移至 `.env`，`config.py` 仅保留非敏感默认值
+
 ### v6.0.0 (2026-06-28) - 抖音全链路优化 + 质量保障
 - ✅ 新增 `ad_script.py` 广告脚本生成模块（5段式、痛点库、卖点拆解、标题/话题标签）
 - ✅ 新增 `douyin_adapter.py` 抖音平台适配（字幕安全区、黄金3秒钩子、节奏优化、规格配置）
@@ -1215,10 +1288,13 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 
 ## 🙋 需要帮助？
 
-- 查看 `config.py` 了解配置选项
-- 查看 `kling_client.py` 了解 API 调用细节
+- 查看 `.env.example` 了解所有可配置的 Key 和选项
+- 查看 `config.py` 了解非敏感默认参数
+- 查看 `kling_client.py` 了解 API 调用和 JWT 鉴权细节
 - 查看 `video_merger.py` 了解视频处理参数
-- 运行 `python one_click_create.py --help` 查看帮助
+- 查看 `cinematic_language.py` 了解电影风格 Prompt 构建逻辑
+- 查看 `llm_client.py` 了解 LLM 文案生成接口配置
+- 运行 `python one_click_create.py --help` 查看完整参数帮助
 
 ---
 
