@@ -29,21 +29,34 @@ htmlcov/
 .benchmarks/
 
 # ============================================================
-# 生成的输出文件
+# 生成的输出、缓存、报告与验证素材
 # ============================================================
-output/character_ref/
-output/clips/
-output/final/
-output/batch/
-output/bgm_cache/
-output/sfx_cache/
+output/
 
 # ============================================================
-# 本地资源（可选，根据需要取消注释）
+# 本地素材分析索引与运行时学习数据
 # ============================================================
-# assets/bgm.mp3
-# assets/*.mp3
-# assets/*.wav
+data/local_asset_index/
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/*.sqlite-*
+data/*.sqlite3
+data/*.sqlite3-*
+
+# ============================================================
+# 本地音视频素材
+# ============================================================
+assets/*.mp3
+assets/*.wav
+assets/*.m4a
+assets/*.aac
+assets/*.flac
+assets/*.mp4
+assets/*.mov
+assets/*.mkv
+assets/*.webm
+assets/*.avi
 
 # ============================================================
 # 编辑器与系统
