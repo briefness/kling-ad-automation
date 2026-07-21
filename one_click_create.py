@@ -9073,7 +9073,7 @@ def main():
             print()
 
         if not getattr(args, "local_assets", None):
-            _local_ans = input("是否使用本地视频素材文件夹？(y/n) [n]：").strip().lower()
+            _local_ans = input("是否使用本地视频素材文件夹？(y/n) [y]：").strip().lower() or "y"
             if _local_ans == "y":
                 _local_path = input("请输入本地视频素材文件夹路径：").strip()
                 if not _local_path:
