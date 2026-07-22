@@ -4,10 +4,10 @@
 
 ## 两种成片模式
 
-| 模式 | 画面来源 | 核心流程 | 是否调用可灵图片/视频 API |
-|------|----------|----------|----------------------------|
-| **本地视频混剪** | 用户提供的视频素材文件夹 | 素材理解 → 基于素材生成带货脚本与单条口播 → 智能选片 → 后期合成 | 否 |
-| **可灵 AI 视频生成/混剪** | 可灵根据产品信息、角色和参考图生成的画面 | 产品脚本 → 角色/商品视觉约束 → AI 分镜生成与择优 → 后期合成 | 是 |
+| 模式                      | 画面来源                                 | 核心流程                                                        | 是否调用可灵图片/视频 API |
+| ------------------------- | ---------------------------------------- | --------------------------------------------------------------- | ------------------------- |
+| **本地视频混剪**          | 用户提供的视频素材文件夹                 | 素材理解 → 基于素材生成带货脚本与单条口播 → 智能选片 → 后期合成 | 否                        |
+| **可灵 AI 视频生成/混剪** | 可灵根据产品信息、角色和参考图生成的画面 | 产品脚本 → 角色/商品视觉约束 → AI 分镜生成与择优 → 后期合成     | 是                        |
 
 两种模式不会在同一次任务中混用画面生成链路。本地模式不会计算可灵费用、生成角色定妆照或执行图片先行预检；AI 模式保留可灵成本预估、图片先行、分镜生成和候选择优。两者只共享脚本、口播、字幕、BGM、转场、特效、CTA、调色、质量检测和导出能力。
 
@@ -16,7 +16,7 @@
 ## 📦 项目结构
 
 ```
-kling-ad-automation/
+dy-ad-automation/
 ├── config.py                     # 配置文件（API Key、参数默认值、电影风格、调色预设、钩子模板、品牌配置）
 ├── kling_client.py               # 可灵 API 客户端（JWT 鉴权 + Bearer 兼容，图片/视频生成）
 ├── video_merger.py               # 视频拼接模块（ffmpeg 封装：拼接/字幕/调色/SFX/封面/水印/卡点/稳像）
@@ -113,14 +113,14 @@ LLM_MODEL=your_model_name
 直接指定素材目录：
 
 ```bash
-cd kling-ad-automation
+cd d y-ad-automation
 python one_click_create.py --local-assets "/path/to/video-assets"
 ```
 
 也可以直接运行：
 
 ```bash
-cd kling-ad-automation
+cd dy-ad-automation
 python one_click_create.py
 ```
 
@@ -135,7 +135,7 @@ python one_click_create.py
 #### 模式 B：可灵 AI 视频生成/混剪
 
 ```bash
-cd kling-ad-automation
+cd dy-ad-automation
 python one_click_create.py
 ```
 
@@ -233,27 +233,27 @@ python one_click_create.py --style kubrick --dual-output
 
 **可选电影风格速查**：
 
-| 风格 | 导演 | 核心运镜 | 适用场景 |
-|------|------|----------|----------|
-| `none` | 无 | 原始 Prompt | 通用/测试 |
-| `hitchcock` | 希区柯克 | 推轨变焦、螺旋聚焦 | 钩子、悬疑广告 |
-| `kubrick` | 库布里克 | 单点透视、匹配剪辑 | 科技、高端产品 |
-| `spielberg` | 斯皮尔伯格 | 拉轨揭示、镜头光晕 | 情感、家庭产品 |
-| `aronofsky` | 阿伦诺夫斯基 | 快速推轨、分裂半透镜 | 美妆、健身、紧迫感 |
-| `scorsese` | 斯科塞斯 | 跟踪镜头、 steadicam | 街头、潮流、运动 |
-| `nolan` | 诺兰 | IMAX 比例、实景特效 | 科技、汽车、高端 |
-| `anderson` | 韦斯·安德森 | 对称构图、 pastel 色彩 | 时尚、甜品、清新 |
-| `wong-kar-wai` | 王家卫 | 霓虹美学、慢快门 | 都市、浪漫、孤独 |
-| `tarkovsky` | 塔可夫斯基 | 诗意长镜头、自然意象 | 艺术、哲学、深度 |
-| `zhang-yimou` | 张艺谋 | 东方色彩、对称构图 | 国风、民俗、仪式 |
-| `koreeda` | 是枝裕和 | 日常诗意、克制温情 | 家庭、生活、治愈 |
-| `tarantino` | 昆汀 | 类型拼贴、暴力美学 | 潮流、年轻、复古 |
-| `jia-zhangke` | 贾樟柯 | 纪实美学、社会变迁 | 纪实、社会、边缘 |
-| `hou-hsiao-hsien` | 侯孝贤 | 长镜头、历史记忆 | 历史、文艺、哲思 |
-| `bong-joon-ho` | 奉俊昊 | 类型混合、空间政治 | 社会讽刺、阶级 |
-| `denis-villeneuve` | 维伦纽瓦 | 宏大尺度、宇宙诗意 | 科幻、史诗、恐惧 |
-| `luc-besson` | 卢贝松 | 视觉诗歌、街头诗学 | 动作、浪漫、欧洲 |
-| `miyazaki` | 宫崎骏 | 手绘诗意、飞行幻想 | 动画、自然、治愈 |
+| 风格               | 导演         | 核心运镜               | 适用场景           |
+| ------------------ | ------------ | ---------------------- | ------------------ |
+| `none`             | 无           | 原始 Prompt            | 通用/测试          |
+| `hitchcock`        | 希区柯克     | 推轨变焦、螺旋聚焦     | 钩子、悬疑广告     |
+| `kubrick`          | 库布里克     | 单点透视、匹配剪辑     | 科技、高端产品     |
+| `spielberg`        | 斯皮尔伯格   | 拉轨揭示、镜头光晕     | 情感、家庭产品     |
+| `aronofsky`        | 阿伦诺夫斯基 | 快速推轨、分裂半透镜   | 美妆、健身、紧迫感 |
+| `scorsese`         | 斯科塞斯     | 跟踪镜头、 steadicam   | 街头、潮流、运动   |
+| `nolan`            | 诺兰         | IMAX 比例、实景特效    | 科技、汽车、高端   |
+| `anderson`         | 韦斯·安德森  | 对称构图、 pastel 色彩 | 时尚、甜品、清新   |
+| `wong-kar-wai`     | 王家卫       | 霓虹美学、慢快门       | 都市、浪漫、孤独   |
+| `tarkovsky`        | 塔可夫斯基   | 诗意长镜头、自然意象   | 艺术、哲学、深度   |
+| `zhang-yimou`      | 张艺谋       | 东方色彩、对称构图     | 国风、民俗、仪式   |
+| `koreeda`          | 是枝裕和     | 日常诗意、克制温情     | 家庭、生活、治愈   |
+| `tarantino`        | 昆汀         | 类型拼贴、暴力美学     | 潮流、年轻、复古   |
+| `jia-zhangke`      | 贾樟柯       | 纪实美学、社会变迁     | 纪实、社会、边缘   |
+| `hou-hsiao-hsien`  | 侯孝贤       | 长镜头、历史记忆       | 历史、文艺、哲思   |
+| `bong-joon-ho`     | 奉俊昊       | 类型混合、空间政治     | 社会讽刺、阶级     |
+| `denis-villeneuve` | 维伦纽瓦     | 宏大尺度、宇宙诗意     | 科幻、史诗、恐惧   |
+| `luc-besson`       | 卢贝松       | 视觉诗歌、街头诗学     | 动作、浪漫、欧洲   |
+| `miyazaki`         | 宫崎骏       | 手绘诗意、飞行幻想     | 动画、自然、治愈   |
 
 ---
 
@@ -436,77 +436,77 @@ python one_click_create.py --ab-versions 2 --product-image product.jpg --style k
 
 ### 基础参数
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--style` | `none` | 电影风格（18 种可选，用 `--list-styles` 查看） |
-| `--duration` | `5` | 单片段时长（秒） |
-| `--mode` | `std` | 生成模式：`std` / `pro` / `4k` |
-| `--aspect-ratio` | `9:16` | 画面比例 |
-| `--target-duration` | - | 目标总时长（秒）：`10` / `15` / `20` / `25` / `30` / `60` |
-| `--rhythm-style` | `moderate` | 节奏风格：`fast` / `moderate` / `cinematic` |
-| `--dual-output` | - | 同时生成 9:16 和 16:9 两个版本 |
+| 参数                | 默认值     | 说明                                                      |
+| ------------------- | ---------- | --------------------------------------------------------- |
+| `--style`           | `none`     | 电影风格（18 种可选，用 `--list-styles` 查看）            |
+| `--duration`        | `5`        | 单片段时长（秒）                                          |
+| `--mode`            | `std`      | 生成模式：`std` / `pro` / `4k`                            |
+| `--aspect-ratio`    | `9:16`     | 画面比例                                                  |
+| `--target-duration` | -          | 目标总时长（秒）：`10` / `15` / `20` / `25` / `30` / `60` |
+| `--rhythm-style`    | `moderate` | 节奏风格：`fast` / `moderate` / `cinematic`               |
+| `--dual-output`     | -          | 同时生成 9:16 和 16:9 两个版本                            |
 
 ### 一致性控制
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--product-image` | - | 商品参考图路径（展示类片段自动使用） |
-| `--image-fidelity` | `0.85` | 参考图 fidelity [0,1] |
-| `--human-fidelity` | `0.8` | 人物 fidelity [0,1] |
-| `--seed` | - | 随机种子基准（各片段自动递增） |
+| 参数               | 默认值 | 说明                                 |
+| ------------------ | ------ | ------------------------------------ |
+| `--product-image`  | -      | 商品参考图路径（展示类片段自动使用） |
+| `--image-fidelity` | `0.85` | 参考图 fidelity [0,1]                |
+| `--human-fidelity` | `0.8`  | 人物 fidelity [0,1]                  |
+| `--seed`           | -      | 随机种子基准（各片段自动递增）       |
 
 ### 钩子与脚本
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--hook` | `question` | 钩子类型（8 种，用 `--list-hooks` 查看） |
-| `--list-hooks` | - | 列出所有钩子模板 |
-| `--script-style` | `standard` | 广告脚本风格（用 `--list-script-styles` 查看） |
-| `--list-script-styles` | - | 列出所有广告脚本风格 |
-| `--ab-versions` | `1` | A/B 测试版本数量（1-3） |
-| `--ab-dim` | - | A/B 测试维度：`hook` / `style` / `script` |
+| 参数                   | 默认值     | 说明                                           |
+| ---------------------- | ---------- | ---------------------------------------------- |
+| `--hook`               | `question` | 钩子类型（8 种，用 `--list-hooks` 查看）       |
+| `--list-hooks`         | -          | 列出所有钩子模板                               |
+| `--script-style`       | `standard` | 广告脚本风格（用 `--list-script-styles` 查看） |
+| `--list-script-styles` | -          | 列出所有广告脚本风格                           |
+| `--ab-versions`        | `1`        | A/B 测试版本数量（1-3）                        |
+| `--ab-dim`             | -          | A/B 测试维度：`hook` / `style` / `script`      |
 
 ### AI 配音
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--voiceover` | - | 启用 AI 口播配音（豆包 TTS 优先，降级 macOS say） |
-| `--voiceover-style` | `standard` | 口播风格：standard / emotional / energetic / professional / storytelling |
-| `--voice` | `auto` | 音色：auto / female_young / female_warm / male_pro / male_magnetic / energetic_female |
-| `--list-voices` | - | 列出所有音色预设 |
+| 参数                | 默认值     | 说明                                                                                  |
+| ------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| `--voiceover`       | -          | 启用 AI 口播配音（豆包 TTS 优先，降级 macOS say）                                     |
+| `--voiceover-style` | `standard` | 口播风格：standard / emotional / energetic / professional / storytelling              |
+| `--voice`           | `auto`     | 音色：auto / female_young / female_warm / male_pro / male_magnetic / energetic_female |
+| `--list-voices`     | -          | 列出所有音色预设                                                                      |
 
 ### 生成质量控制
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--best-of` | `2` | 每个分镜生成候选数，自动质量择优 |
-| `--quality-frames` | `12` | best-of 择优时的抽帧数量 |
-| `--keep-candidates` | - | 保留未被选中的候选片段 |
-| `--min-clips` | `3` | 最少成功片段数，低于此数则终止 |
-| `--max-workers` | `4` | 并行生成最大线程数 |
-| `--stabilize` / `--no-stabilize` | 开启 | 视频稳定化 + 去闪烁 |
-| `--multi-shot` | - | 启用可灵多镜头模式（intelligence 分镜） |
-| `--kling-model` | - | 指定可灵模型版本（如 `kling-v2-master`） |
+| 参数                             | 默认值 | 说明                                     |
+| -------------------------------- | ------ | ---------------------------------------- |
+| `--best-of`                      | `2`    | 每个分镜生成候选数，自动质量择优         |
+| `--quality-frames`               | `12`   | best-of 择优时的抽帧数量                 |
+| `--keep-candidates`              | -      | 保留未被选中的候选片段                   |
+| `--min-clips`                    | `3`    | 最少成功片段数，低于此数则终止           |
+| `--max-workers`                  | `4`    | 并行生成最大线程数                       |
+| `--stabilize` / `--no-stabilize` | 开启   | 视频稳定化 + 去闪烁                      |
+| `--multi-shot`                   | -      | 启用可灵多镜头模式（intelligence 分镜）  |
+| `--kling-model`                  | -      | 指定可灵模型版本（如 `kling-v2-master`） |
 
 ### 执行模式
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--preview` / `-p` | - | 快速预览：仅生成第 1 段，跳过后期，用于快速试错 |
-| `--serial` | - | 强制串行生成（每段用上一段尾帧，极致一致性） |
-| `--strict` / `--no-strict` | 开启 | 严格模式：关键步骤失败时抛出异常而非静默降级 |
-| `--force` | - | 强制跳过 high 风险合规拦截（critical 始终拦截） |
-| `--no-llm` | - | 禁用 LLM 文案生成，强制走内置模板 |
-| `--brand-intro-outro` | - | 在成片首尾加入品牌开场（2s）和收尾动画（1.5s） |
-| `--local-assets` | 交互默认 `y` | 指定本地视频素材文件夹；交互运行时直接回车默认进入本地素材模式 |
+| 参数                       | 默认值       | 说明                                                           |
+| -------------------------- | ------------ | -------------------------------------------------------------- |
+| `--preview` / `-p`         | -            | 快速预览：仅生成第 1 段，跳过后期，用于快速试错                |
+| `--serial`                 | -            | 强制串行生成（每段用上一段尾帧，极致一致性）                   |
+| `--strict` / `--no-strict` | 开启         | 严格模式：关键步骤失败时抛出异常而非静默降级                   |
+| `--force`                  | -            | 强制跳过 high 风险合规拦截（critical 始终拦截）                |
+| `--no-llm`                 | -            | 禁用 LLM 文案生成，强制走内置模板                              |
+| `--brand-intro-outro`      | -            | 在成片首尾加入品牌开场（2s）和收尾动画（1.5s）                 |
+| `--local-assets`           | 交互默认 `y` | 指定本地视频素材文件夹；交互运行时直接回车默认进入本地素材模式 |
 
 ### 模板与其他
 
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--save TEMPLATE.json` | - | 保存当前参数为模板 |
-| `--load TEMPLATE.json` | - | 从模板加载参数，跳过交互 |
-| `--list-styles` | - | 列出所有电影风格卡片 |
+| 参数                   | 默认值 | 说明                     |
+| ---------------------- | ------ | ------------------------ |
+| `--save TEMPLATE.json` | -      | 保存当前参数为模板       |
+| `--load TEMPLATE.json` | -      | 从模板加载参数，跳过交互 |
+| `--list-styles`        | -      | 列出所有电影风格卡片     |
 
 ---
 
@@ -516,36 +516,36 @@ python one_click_create.py --ab-versions 2 --product-image product.jpg --style k
 
 ### 主要配置项
 
-| 参数 | 来源 | 默认值 | 说明 |
-|------|------|--------|------|
-| `KLING_ACCESS_KEY` | `.env` | - | 可灵 JWT AccessKey（推荐） |
-| `KLING_SECRET_KEY` | `.env` | - | 可灵 JWT SecretKey（推荐） |
-| `KLING_API_KEY` | `.env` | - | 旧版 Bearer API Key（兼容） |
-| `KLING_BASE_URL` | `.env` / `config.py` | `https://api-beijing.klingai.com` | API 地址 |
-| `VOLC_API_KEY` | `.env` | - | 豆包 TTS API Key（可选，不填降级 macOS say） |
-| `LLM_API_KEY` | `.env` | - | LLM 文案生成 API Key（可选） |
-| `LLM_BASE_URL` | `.env` | - | LLM 接口地址（OpenAI 兼容） |
-| `LLM_MODEL` | `.env` | - | LLM 模型名称 |
-| `DEFAULT_VIDEO_DURATION` | `config.py` | `5` | 单片段时长（秒） |
-| `DEFAULT_ASPECT_RATIO` | `config.py` | `9:16` | 画面比例（竖屏） |
-| `DEFAULT_MODE` | `config.py` | `std` | 生成模式（std/pro/4k） |
-| `OUTPUT_RESOLUTION` | `config.py` | `1080x1920` | 输出分辨率 |
-| `OUTPUT_FPS` | `config.py` | `30` | 输出帧率 |
+| 参数                     | 来源                 | 默认值                            | 说明                                         |
+| ------------------------ | -------------------- | --------------------------------- | -------------------------------------------- |
+| `KLING_ACCESS_KEY`       | `.env`               | -                                 | 可灵 JWT AccessKey（推荐）                   |
+| `KLING_SECRET_KEY`       | `.env`               | -                                 | 可灵 JWT SecretKey（推荐）                   |
+| `KLING_API_KEY`          | `.env`               | -                                 | 旧版 Bearer API Key（兼容）                  |
+| `KLING_BASE_URL`         | `.env` / `config.py` | `https://api-beijing.klingai.com` | API 地址                                     |
+| `VOLC_API_KEY`           | `.env`               | -                                 | 豆包 TTS API Key（可选，不填降级 macOS say） |
+| `LLM_API_KEY`            | `.env`               | -                                 | LLM 文案生成 API Key（可选）                 |
+| `LLM_BASE_URL`           | `.env`               | -                                 | LLM 接口地址（OpenAI 兼容）                  |
+| `LLM_MODEL`              | `.env`               | -                                 | LLM 模型名称                                 |
+| `DEFAULT_VIDEO_DURATION` | `config.py`          | `5`                               | 单片段时长（秒）                             |
+| `DEFAULT_ASPECT_RATIO`   | `config.py`          | `9:16`                            | 画面比例（竖屏）                             |
+| `DEFAULT_MODE`           | `config.py`          | `std`                             | 生成模式（std/pro/4k）                       |
+| `OUTPUT_RESOLUTION`      | `config.py`          | `1080x1920`                       | 输出分辨率                                   |
+| `OUTPUT_FPS`             | `config.py`          | `30`                              | 输出帧率                                     |
 
 ### 产品类型预设
 
-| 预设 | 场景 | 灯光 | 动作 |
-|------|------|------|------|
-| `美妆` | clean vanity table | soft natural lighting | applying product on hand |
-| `食品` | wooden kitchen table | warm natural sunlight | taking a bite |
-| `科技` | minimalist modern desk | cool tech lighting | touching screen |
-| `服装` | clean white background | studio soft lighting | showing outfit details |
-| `app` | coffee shop table | bright natural light | swiping phone screen |
-| `汽车` | coastal highway or city skyline | golden hour sunlight | driving smoothly |
-| `房产` | modern living room | soft window light | walking through space |
-| `教育` | modern classroom or library | classroom natural light | studying intently |
-| `医疗` | modern clinic or lab | bright clinical lighting | professional demonstration |
-| `default` | lifestyle setting | natural lighting | using the product naturally |
+| 预设      | 场景                            | 灯光                     | 动作                        |
+| --------- | ------------------------------- | ------------------------ | --------------------------- |
+| `美妆`    | clean vanity table              | soft natural lighting    | applying product on hand    |
+| `食品`    | wooden kitchen table            | warm natural sunlight    | taking a bite               |
+| `科技`    | minimalist modern desk          | cool tech lighting       | touching screen             |
+| `服装`    | clean white background          | studio soft lighting     | showing outfit details      |
+| `app`     | coffee shop table               | bright natural light     | swiping phone screen        |
+| `汽车`    | coastal highway or city skyline | golden hour sunlight     | driving smoothly            |
+| `房产`    | modern living room              | soft window light        | walking through space       |
+| `教育`    | modern classroom or library     | classroom natural light  | studying intently           |
+| `医疗`    | modern clinic or lab            | bright clinical lighting | professional demonstration  |
+| `default` | lifestyle setting               | natural lighting         | using the product naturally |
 
 ### 环境变量
 
@@ -602,6 +602,7 @@ python script_feedback.py \
 ### 输出产物
 
 每次生成视频后，会自动输出：
+
 - 视频内嵌字幕（带动画效果）
 - 口播文案（启用 `--voiceover` 时使用）
 - 5 个标题选项（可直接用作抖音标题）
@@ -613,16 +614,16 @@ python script_feedback.py \
 
 8 种开头钩子类型，适配不同产品和风格，用 `--hook` 参数指定：
 
-| 钩子类型 | 名称 | 适用场景 |
-|----------|------|----------|
-| `question` | 灵魂拷问式 | 美妆/个护/家居/食品 |
-| `shocking` | 震惊反差式 | 数码/家居/食品/美妆 |
-| `before_after` | 前后对比式 | 美妆/个护/健身/清洁 |
+| 钩子类型        | 名称       | 适用场景            |
+| --------------- | ---------- | ------------------- |
+| `question`      | 灵魂拷问式 | 美妆/个护/家居/食品 |
+| `shocking`      | 震惊反差式 | 数码/家居/食品/美妆 |
+| `before_after`  | 前后对比式 | 美妆/个护/健身/清洁 |
 | `demonstration` | 效果展示式 | 美妆/食品/数码/家居 |
-| `story` | 故事叙述式 | 美妆/个护/食品/家居 |
-| `challenge` | 挑战测试式 | 数码/清洁/个护/食品 |
-| `celeb_style` | 明星同款式 | 美妆/个护/时尚/食品 |
-| `pain_point` | 痛点直击式 | 家居/个护/食品/数码 |
+| `story`         | 故事叙述式 | 美妆/个护/食品/家居 |
+| `challenge`     | 挑战测试式 | 数码/清洁/个护/食品 |
+| `celeb_style`   | 明星同款式 | 美妆/个护/时尚/食品 |
+| `pain_point`    | 痛点直击式 | 家居/个护/食品/数码 |
 
 使用 `--list-hooks` 查看所有钩子详情。
 
@@ -634,14 +635,14 @@ python script_feedback.py \
 
 根据产品品类自动匹配 BGM 风格，数据来自 [FreeToUse Music API](https://freetouse.com/api)（免费、免版权）：
 
-| 品类 | BGM 关键词 |
-|------|-----------|
-| 美妆 | upbeat / happy / aesthetic / chill |
-| 食品 | happy / fun / upbeat / cooking |
+| 品类 | BGM 关键词                          |
+| ---- | ----------------------------------- |
+| 美妆 | upbeat / happy / aesthetic / chill  |
+| 食品 | happy / fun / upbeat / cooking      |
 | 科技 | technology / corporate / electronic |
-| 服装 | fashion / cool / edm / trap |
-| 汽车 | energetic / epic / rock |
-| 房产 | inspiring / corporate / calm |
+| 服装 | fashion / cool / edm / trap         |
+| 汽车 | energetic / epic / rock             |
+| 房产 | inspiring / corporate / calm        |
 
 ### 特性
 
@@ -663,23 +664,23 @@ python one_click_create.py --voiceover --voice energetic_female
 
 ### 5 种口播风格
 
-| 风格 | 名称 | 适用场景 |
-|------|------|----------|
-| `standard` | 标准带货 | 通用电商 |
-| `emotional` | 情感共鸣 | 走心/生活方式 |
-| `energetic` | 激情喊麦 | 促销/福利/直播感 |
-| `professional` | 专业测评 | 科技/数码/硬核 |
-| `storytelling` | 故事叙述 | 品牌/长视频 |
+| 风格           | 名称     | 适用场景         |
+| -------------- | -------- | ---------------- |
+| `standard`     | 标准带货 | 通用电商         |
+| `emotional`    | 情感共鸣 | 走心/生活方式    |
+| `energetic`    | 激情喊麦 | 促销/福利/直播感 |
+| `professional` | 专业测评 | 科技/数码/硬核   |
+| `storytelling` | 故事叙述 | 品牌/长视频      |
 
 ### 5 种音色
 
-| 音色 key | 名称 | 豆包音色 / macOS 降级 |
-|----------|------|----------------------|
-| `female_young` | 年轻女声 | zh_female_shuangkuaisisi / Tingting |
-| `female_warm` | 温暖女声 | zh_female_tianmeixiaoyuan / Sandy |
-| `male_pro` | 专业男声 | zh_male_jingqiangkanye / Eddy |
-| `male_magnetic` | 磁性男声 | zh_male_qingshuaige / Reed |
-| `energetic_female` | 活力女声 | zh_female_renxiaobao / Flo |
+| 音色 key           | 名称     | 豆包音色 / macOS 降级               |
+| ------------------ | -------- | ----------------------------------- |
+| `female_young`     | 年轻女声 | zh_female_shuangkuaisisi / Tingting |
+| `female_warm`      | 温暖女声 | zh_female_tianmeixiaoyuan / Sandy   |
+| `male_pro`         | 专业男声 | zh_male_jingqiangkanye / Eddy       |
+| `male_magnetic`    | 磁性男声 | zh_male_qingshuaige / Reed          |
+| `energetic_female` | 活力女声 | zh_female_renxiaobao / Flo          |
 
 > **优先级**：配置了 `VOLC_API_KEY` 时自动使用豆包 TTS V3（`seed-tts-2.0`），否则降级到 macOS `say`（离线免费）。
 
@@ -689,11 +690,11 @@ python one_click_create.py --voiceover --voice energetic_female
 
 4 种字幕动画效果，默认 `pop`：
 
-| 动画 | 效果 | 适用场景 |
-|------|------|----------|
-| `pop` | 弹跳弹出 | 活力/年轻向 |
-| `slide` | 侧滑进入 | 简洁/专业 |
-| `fade` | 淡入淡出 | 文艺/慢节奏 |
+| 动画        | 效果       | 适用场景      |
+| ----------- | ---------- | ------------- |
+| `pop`       | 弹跳弹出   | 活力/年轻向   |
+| `slide`     | 侧滑进入   | 简洁/专业     |
+| `fade`      | 淡入淡出   | 文艺/慢节奏   |
 | `highlight` | 关键词高亮 | 强调卖点/促销 |
 
 ### 抖音适配
@@ -709,17 +710,17 @@ python one_click_create.py --voiceover --voice energetic_female
 
 9 种调色预设，自动匹配电影风格：
 
-| 预设 | 风格 | 适用场景 |
-|------|------|----------|
-| `warm_cinematic` | 暖色电影感 | 默认/通用 |
-| `cool_cinematic` | 冷色电影感 | 科技/高端 |
-| `vintage` | 复古胶片 | 怀旧/文艺 |
-| `teal_orange` | 青橙色调 | 好莱坞/动作 |
-| `moody` | 暗调情绪 | 悬疑/高级 |
-| `bright_clean` | 明亮清新 | 美妆/食品 |
-| `noir` | 黑白胶片 | 高端/极简 |
-| `pastel` | 马卡龙 | 甜品/少女向 |
-| `none` | 无调色 | 原样输出 |
+| 预设             | 风格       | 适用场景    |
+| ---------------- | ---------- | ----------- |
+| `warm_cinematic` | 暖色电影感 | 默认/通用   |
+| `cool_cinematic` | 冷色电影感 | 科技/高端   |
+| `vintage`        | 复古胶片   | 怀旧/文艺   |
+| `teal_orange`    | 青橙色调   | 好莱坞/动作 |
+| `moody`          | 暗调情绪   | 悬疑/高级   |
+| `bright_clean`   | 明亮清新   | 美妆/食品   |
+| `noir`           | 黑白胶片   | 高端/极简   |
+| `pastel`         | 马卡龙     | 甜品/少女向 |
+| `none`           | 无调色     | 原样输出    |
 
 ---
 
@@ -728,6 +729,7 @@ python one_click_create.py --voiceover --voice energetic_female
 ### 音效系统
 
 内置 3 种基础音效（动态生成，无需额外资源）：
+
 - `whoosh` — 转场咻声
 - `impact` — 重音冲击
 - `ding` — 强调叮声
@@ -735,6 +737,7 @@ python one_click_create.py --voiceover --voice energetic_female
 ### 卡点剪辑
 
 自动检测 BGM 节拍点，将转场和字幕对齐到节拍：
+
 - 转场对齐节拍点
 - 字幕弹出对齐重拍
 - 音效配合节奏点
@@ -744,6 +747,7 @@ python one_click_create.py --voiceover --voice energetic_female
 ## 🖼️ 封面图生成
 
 视频导出时自动从最佳帧提取封面图：
+
 - 自动选择画面最清晰的帧
 - 优先选择有人物正脸的帧
 - 输出 JPEG 格式，可直接上传抖音
@@ -774,15 +778,15 @@ BRAND_CONFIG = {
 
 内置完整的抖音平台规范适配：
 
-| 维度 | 适配内容 |
-|------|----------|
+| 维度     | 适配内容                                  |
+| -------- | ----------------------------------------- |
 | 视频规格 | 1080x1920 竖屏 / 30fps / H.264 / AAC 160k |
-| 时长 | 自动适配 7/15/30/60 秒黄金档 |
-| 钩子 | 前 3 秒黄金钩子，强制抓注意力 |
-| 字幕 | 大字号 + 粗描边 + 底部安全区 |
-| 节奏 | 每 5 秒一个信息点，转场快（0.4s） |
-| 口播 | 语速 200 字/分钟，BGM 闪避 |
-| CTA | 结尾留 2 秒行动引导 |
+| 时长     | 自动适配 7/15/30/60 秒黄金档              |
+| 钩子     | 前 3 秒黄金钩子，强制抓注意力             |
+| 字幕     | 大字号 + 粗描边 + 底部安全区              |
+| 节奏     | 每 5 秒一个信息点，转场快（0.4s）         |
+| 口播     | 语速 200 字/分钟，BGM 闪避                |
+| CTA      | 结尾留 2 秒行动引导                       |
 
 ---
 
@@ -790,12 +794,12 @@ BRAND_CONFIG = {
 
 自动检测字幕、口播、标题、话题标签中的违规内容：
 
-| 风险等级 | 内容 | 处理方式 |
-|----------|------|----------|
+| 风险等级  | 内容                                              | 处理方式 |
+| --------- | ------------------------------------------------- | -------- |
 | 🔴 高风险 | 最高级词（最/第一/唯一/顶级等）、国家级、虚假承诺 | 必须替换 |
-| 🟠 中风险 | 效果保证、投资回报、夸张表述、紧迫营销 | 建议替换 |
-| 🟡 低风险 | 数据表述、主观感受、对比词 | 建议核实 |
-| ⚫ 敏感 | 政治/色情/暴力/医疗等 | 严禁使用 |
+| 🟠 中风险 | 效果保证、投资回报、夸张表述、紧迫营销            | 建议替换 |
+| 🟡 低风险 | 数据表述、主观感受、对比词                        | 建议核实 |
+| ⚫ 敏感   | 政治/色情/暴力/医疗等                             | 严禁使用 |
 
 检测完成后输出合规报告，包含具体违规位置和替换建议。
 
@@ -805,14 +809,14 @@ BRAND_CONFIG = {
 
 导出成片后自动进行质量检测：
 
-| 检测项 | 内容 |
-|--------|------|
-| 黑帧检测 | 开头/结尾黑帧，自动裁剪 |
-| 冻结帧检测 | 静止画面检测，标记风险 |
-| 清晰度检测 | 拉普拉斯方差评估画面锐利度 |
-| 闪烁检测 | 相邻帧差异过大的闪烁 |
-| 音频质量 | 集成响度（LUFS）/ 真峰值检测 |
-| 人脸初筛 | 肤色区域形态学异常初筛 |
+| 检测项     | 内容                         |
+| ---------- | ---------------------------- |
+| 黑帧检测   | 开头/结尾黑帧，自动裁剪      |
+| 冻结帧检测 | 静止画面检测，标记风险       |
+| 清晰度检测 | 拉普拉斯方差评估画面锐利度   |
+| 闪烁检测   | 相邻帧差异过大的闪烁         |
+| 音频质量   | 集成响度（LUFS）/ 真峰值检测 |
+| 人脸初筛   | 肤色区域形态学异常初筛       |
 
 输出 0-100 分的质量评分和详细报告。
 
@@ -823,6 +827,7 @@ BRAND_CONFIG = {
 ### one_click_create.py（主脚本）
 
 一键成片入口，执行流程：
+
 1. 选择本地视频混剪或可灵 AI 视频生成/混剪
 2. 本地分支分析并标记素材，基于素材理解生成脚本和单条口播，再按脚本语义选片
 3. AI 分支生成广告脚本和视觉约束，调用 `kling_client.py` 生成角色定妆照与分镜候选并择优
@@ -835,6 +840,7 @@ BRAND_CONFIG = {
 ### kling_client.py（API 客户端）
 
 封装可灵官方 API：
+
 - `generate_character_ref()` - 生成角色定妆照
 - `generate_video()` - 生成视频片段
 - `create_video_task()` - 创建异步视频任务
@@ -844,6 +850,7 @@ BRAND_CONFIG = {
 ### video_merger.py（视频处理模块）
 
 基于 ffmpeg 的全链路视频处理：
+
 - `merge_clips_ffmpeg()` - 拼接多个视频片段 + 转场
 - `add_fancy_subtitles()` - 字幕动画（pop/slide/fade/highlight）
 - `apply_color_grading()` - 后期调色（9 种预设）
@@ -859,6 +866,7 @@ BRAND_CONFIG = {
 ### ad_script.py（广告脚本生成）
 
 5 段式广告文案生成：
+
 - `generate_ad_script()` - 生成完整广告脚本
 - `script_to_clip_prompts()` - 脚本转分镜 Prompt
 - `script_to_subtitles()` - 脚本转字幕
@@ -869,6 +877,7 @@ BRAND_CONFIG = {
 ### bgm_client.py（BGM 音乐客户端）
 
 FreeToUse Music API 封装：
+
 - `pick_bgm_for_product()` - 按品类智能选曲
 - `search_music()` - 搜索音乐
 - 本地缓存机制，避免重复下载
@@ -877,6 +886,7 @@ FreeToUse Music API 封装：
 ### tts_client.py（AI 口播配音）
 
 macOS say 命令封装（可扩展第三方 TTS）：
+
 - `generate_full_voiceover()` - 生成完整配音
 - `align_subtitles_to_voiceover()` - 字幕时间轴对齐
 - 5 种口播风格 + 5 种音色
@@ -885,6 +895,7 @@ macOS say 命令封装（可扩展第三方 TTS）：
 ### douyin_adapter.py（抖音平台适配）
 
 抖音规范配置与优化：
+
 - `get_douyin_config()` - 获取抖音平台配置
 - `optimize_subtitles_for_douyin()` - 字幕抖音优化
 - 黄金 3 秒钩子、字幕安全区、节奏适配
@@ -892,6 +903,7 @@ macOS say 命令封装（可扩展第三方 TTS）：
 ### compliance_checker.py（广告合规检测）
 
 广告法 + 平台规则检测：
+
 - `check_script_compliance()` - 检测脚本合规性
 - `print_compliance_report()` - 输出合规报告
 - 三级风险等级（高/中/低）+ 敏感词
@@ -900,6 +912,7 @@ macOS say 命令封装（可扩展第三方 TTS）：
 ### quality_checker.py（视频质量检测）
 
 基于 ffmpeg + OpenCV 的质量评估：
+
 - `check_video_quality()` - 完整质量检测
 - `print_quality_report()` - 输出质量报告
 - 清晰度 / 黑帧 / 冻结帧 / 闪烁 / 音频质量 / 人脸初筛
@@ -919,15 +932,15 @@ macOS say 命令封装（可扩展第三方 TTS）：
 
 ### 风格映射表
 
-| 风格键 | 导演 | 片段1 钩子 | 片段2 转折 | 片段3 展示 | 片段4 结果 | 片段5 CTA |
-|--------|------|-----------|-----------|-----------|-----------|----------|
-| `hitchcock` | 希区柯克 | Dolly Zoom 推轨变焦 | 螺旋聚焦 |  paranoid surveillance | 拉轨揭示孤立 | 暗角结束 |
-| `kubrick` | 库布里克 | 单点透视推进 | 时间跳跃 | 对称环绕 | 对称拉远 | 中心构图 |
-| `spielberg` | 斯皮尔伯格 | 期待推进 | 镜头光晕 | 拉轨揭示全景 | 拉轨揭示情绪 | 低角度仰视 |
-| `aronofsky` | 阿伦诺夫斯基 | 快速推轨 | 快速跳切 | 分裂半透镜环绕 | 快速拉远 | 快速推轨 |
-| `scorsese` | 斯科塞斯 | 跟踪推进 | 自由轨道 | Steadicam 环绕 | 拉远揭示环境 | 冻结帧结束 |
-| `nolan` | 诺兰 | IMAX 推进 | 交叉剪辑 | 实景特效环绕 | 实景拉远 | IMAX 固定 |
-| `anderson` | 韦斯·安德森 | 对称推进 | 水平转场 | 对称环绕 | 对称拉远 | 对称固定 |
+| 风格键      | 导演         | 片段1 钩子          | 片段2 转折 | 片段3 展示            | 片段4 结果   | 片段5 CTA  |
+| ----------- | ------------ | ------------------- | ---------- | --------------------- | ------------ | ---------- |
+| `hitchcock` | 希区柯克     | Dolly Zoom 推轨变焦 | 螺旋聚焦   | paranoid surveillance | 拉轨揭示孤立 | 暗角结束   |
+| `kubrick`   | 库布里克     | 单点透视推进        | 时间跳跃   | 对称环绕              | 对称拉远     | 中心构图   |
+| `spielberg` | 斯皮尔伯格   | 期待推进            | 镜头光晕   | 拉轨揭示全景          | 拉轨揭示情绪 | 低角度仰视 |
+| `aronofsky` | 阿伦诺夫斯基 | 快速推轨            | 快速跳切   | 分裂半透镜环绕        | 快速拉远     | 快速推轨   |
+| `scorsese`  | 斯科塞斯     | 跟踪推进            | 自由轨道   | Steadicam 环绕        | 拉远揭示环境 | 冻结帧结束 |
+| `nolan`     | 诺兰         | IMAX 推进           | 交叉剪辑   | 实景特效环绕          | 实景拉远     | IMAX 固定  |
+| `anderson`  | 韦斯·安德森  | 对称推进            | 水平转场   | 对称环绕              | 对称拉远     | 对称固定   |
 
 ### 自定义风格
 
@@ -952,6 +965,7 @@ CINEMATIC_STYLES = {
 ### 参考文档
 
 详细每种风格的运镜/转场/光线/色彩说明，查看 `references/cinematic_styles/` 目录：
+
 - `hitchcock.md` - 希区柯克风格详解
 - `kubrick.md` - 库布里克风格详解
 - `spielberg.md` - 斯皮尔伯格风格详解
@@ -995,12 +1009,14 @@ python one_click_create.py --dual-output
 ## ⚠️ 注意事项
 
 ### 1. API 配额与费用
+
 - 可灵 API 按调用次数/时长计费
 - 单次视频生成约消耗 5-15s 时长额度
 - 运行时会自动预估费用并确认，建议先在可灵官网测试效果
 - 详细定价见 `config.py` 中的 `KLING_PRICING` 配置
 
 ### 2. 生成时间
+
 - 角色定妆照：约 10-30 秒
 - 单个视频片段：约 1-3 分钟
 - 5 个片段总计：约 5-15 分钟
@@ -1008,6 +1024,7 @@ python one_click_create.py --dual-output
 - 质量检测：约 30 秒
 
 ### 3. 一致性保障
+
 - 所有片段自动使用同一张角色定妆照作为参考图
 - 通过 `image_fidelity` 和 `human_fidelity` 参数锁定人物特征
 - 使用 `--seed` 参数固定随机种子基准，各片段自动递增
@@ -1021,6 +1038,7 @@ python one_click_create.py --dual-output
 - 如需保留中间文件用于调试，请在 `run_one_click_create()` 的 `except` 块中注释掉 `cleanup_output(output_name)` 调用
 
 ### 5. BGM 与配音
+
 - BGM 来自 FreeToUse Music API，免费免版权，自动缓存到本地
 - AI 配音基于 macOS `say` 命令，离线可用，无需额外费用
 - 启用配音时 BGM 自动闪避（降低到 0.25），保证人声清晰
@@ -1037,6 +1055,7 @@ python one_click_create.py --dual-output
 ### 调整生成参数
 
 在 `config.py` 中修改：
+
 ```python
 DEFAULT_VIDEO_DURATION = 8  # 延长片段时长
 DEFAULT_MODE = "pro"        # 使用高品质模式
@@ -1105,11 +1124,12 @@ DEFAULT_MODE = "pro"        # 使用高品质模式
 项目包含核心逻辑单元测试，使用 pytest 运行：
 
 ```bash
-cd kling-ad-automation
+cd dy-ad-automation
 python -m pytest tests/ -v
 ```
 
 测试覆盖：
+
 - 电影风格配置完整性（18 种风格）
 - 产品预设系统
 - 电影风格注入逻辑
@@ -1138,8 +1158,8 @@ default_mode: "pro"
 default_aspect_ratio: "9:16"
 
 # 批量执行配置
-concurrent: 1          # 并发数，建议 1-2，避免触发 API 限流
-fail_fast: true        # true：任一任务失败立即终止；false：继续执行剩余任务
+concurrent: 1 # 并发数，建议 1-2，避免触发 API 限流
+fail_fast: true # true：任一任务失败立即终止；false：继续执行剩余任务
 output_dir: "output/batch_20240627"
 
 # 任务列表
@@ -1175,21 +1195,21 @@ tasks:
 ### 第二步：运行批量生成
 
 ```bash
-cd kling-ad-automation
+cd dy-ad-automation
 python batch.py --config batch.yaml
 ```
 
 ### 批量生成参数说明
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--config` | YAML 配置文件路径（必填） | - |
-| `--concurrent` | 覆盖配置文件中的并发数 | 配置文件中的值 |
-| `default_style` | 默认电影风格 | `none` |
-| `default_duration` | 默认片段时长（秒） | `5` |
-| `default_mode` | 默认生成模式 | `std` |
-| `concurrent` | 并发执行数 | `1` |
-| `fail_fast` | 失败即停 | `true` |
+| 参数               | 说明                      | 默认值         |
+| ------------------ | ------------------------- | -------------- |
+| `--config`         | YAML 配置文件路径（必填） | -              |
+| `--concurrent`     | 覆盖配置文件中的并发数    | 配置文件中的值 |
+| `default_style`    | 默认电影风格              | `none`         |
+| `default_duration` | 默认片段时长（秒）        | `5`            |
+| `default_mode`     | 默认生成模式              | `std`          |
+| `concurrent`       | 并发执行数                | `1`            |
+| `fail_fast`        | 失败即停                  | `true`         |
 
 ### 批量生成输出
 
@@ -1260,6 +1280,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json
 ```
 
 输出：
+
 ```
 🎬 可灵 AI 抖音广告视频 - 一键成片（模板模式）
 📄 加载模板：templates/earbuds_kubrick.json
@@ -1285,6 +1306,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 ## 📌 更新日志
 
 ### v7.0.0 (2026-07-02) - LLM 文案 + 豆包 TTS + 生成质量升级
+
 - ✅ 新增 `llm_client.py`：接入 LLM 大模型生成广告文案（OpenAI 兼容接口），`--no-llm` 可降级内置模板
 - ✅ 新增 `cinematic_language.py`：深度电影语言模块，18 种风格 Prompt 精细化构建（`build_cinematic_prompt_elements`）
 - ✅ TTS 升级为豆包大模型语音合成 V3（`seed-tts-2.0`），配置 `VOLC_API_KEY` 即启用，否则自动降级 macOS say
@@ -1303,6 +1325,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 - ✅ 所有敏感配置迁移至 `.env`，`config.py` 仅保留非敏感默认值
 
 ### v6.0.0 (2026-06-28) - 抖音全链路优化 + 质量保障
+
 - ✅ 新增 `ad_script.py` 广告脚本生成模块（5段式、痛点库、卖点拆解、标题/话题标签）
 - ✅ 新增 `douyin_adapter.py` 抖音平台适配（字幕安全区、黄金3秒钩子、节奏优化、规格配置）
 - ✅ 新增 `compliance_checker.py` 广告合规检测（极限词/敏感词、三级风险等级、替换建议）
@@ -1316,6 +1339,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 - ✅ 移除快手相关代码，专注抖音平台
 
 ### v5.0.0 (2026-06-28) - BGM 系统 + 配音 + 后期全升级
+
 - ✅ 新增 `bgm_client.py` BGM 音乐模块（FreeToUse API、品类自动选曲、本地缓存、淡入淡出）
 - ✅ 新增 `tts_client.py` AI 口播配音（macOS say、5 种风格、5 种音色、字幕对齐、BGM 闪避）
 - ✅ 新增字幕动画系统（4 种：pop 弹跳 / slide 侧滑 / fade 淡入 / highlight 高亮）
@@ -1330,6 +1354,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 - ✅ 新增字幕安全区适配（抖音小黄车避让）
 
 ### v4.0.0 (2026-06-27) - 美学参考库 + 双版本输出 + 测试
+
 - ✅ 电影风格从 7 种扩展至 18 种（新增王家卫、塔可夫斯基、张艺谋、是枝裕和、昆汀、贾樟柯、侯孝贤、奉俊昊、维伦纽瓦、卢贝松、宫崎骏）
 - ✅ 新增 `--list-styles` 命令，一键打印风格卡片库
 - ✅ 新增 `--dual-output` 参数，同时生成 9:16 + 16:9 两个版本
@@ -1339,12 +1364,14 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 - ✅ 更新 README，补充 18 种风格速查表、产品预设表、双版本输出说明
 
 ### v3.0.0 (2026-06-27) - 批量生成 + 模板系统
+
 - ✅ 新增 `batch.py` 批量生成脚本，支持 YAML 配置 + 并发控制 + fail_fast
 - ✅ `one_click_create.py` 支持 `--save` / `--load` 模板保存与加载
 - ✅ 提取核心逻辑到 `run_one_click_create()`，供 batch.py 复用
 - ✅ 新增项目结构文档
 
 ### v2.0.0 (2026-06-27) - 一键成片版本
+
 - ✅ 新增 `one_click_create.py` 一键成片主脚本
 - ✅ 新增 `kling_client.py` 可灵 API 客户端
 - ✅ 新增 `video_merger.py` ffmpeg 拼接模块
@@ -1353,6 +1380,7 @@ python one_click_create.py --load templates/earbuds_kubrick.json --save template
 - ✅ 支持产品类型预设（美妆/食品/科技/服装/App）
 
 ### v1.0.0 (2026-06-27) - 初始版本
+
 - 手动复制 Prompt 到可灵的模板版本
 
 ---

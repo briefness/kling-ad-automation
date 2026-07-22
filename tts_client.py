@@ -1188,24 +1188,43 @@ def split_and_align_voiceover_subtitles(
     audio_end: float,
     max_units: int = 11,
 ) -> List[Dict[str, Any]]:
-    """Split punctuated speech into phrases and align them to the single TTS master."""
-    from video_merger import _split_single_line_text, _subtitle_units
+    """Align punctuation-delimited semantic phrases to measured speech pauses."""
+    from video_merger import _subtitle_units
 
-    phrases: List[Dict[str, Any]] = []
+    semantic_phrases: List[Dict[str, Any]] = []
     for line in lines:
-        chunks = _split_single_line_text(str(line.get("text") or ""), max_units)
-        if not chunks:
+        text = re.sub(
+            r"\s+", "", str(line.get("text") or "").replace("\\N", "").replace("\n", ""),
+        )
+        phrases = [
+            part
+            for part in re.split(r"(?<=[，。！？；、：,.!?;:])", text)
+            if part
+        ]
+        if not phrases:
             continue
         start = float(line.get("start", 0.0))
         end = float(line.get("end", start + 0.1))
-        weights = [max(1.0, _subtitle_units(chunk)) for chunk in chunks]
+        weights = [max(1.0, _subtitle_units(phrase)) for phrase in phrases]
         total_weight = sum(weights)
         cursor = start
-        for index, (chunk, weight) in enumerate(zip(chunks, weights)):
-            chunk_end = end if index == len(chunks) - 1 else cursor + (end - start) * weight / total_weight
-            phrases.append({**line, "text": chunk, "start": cursor, "end": chunk_end})
-            cursor = chunk_end
-    return align_voiceover_lines_to_audio_pauses(phrases, audio_path, audio_end)
+        for index, (phrase, weight) in enumerate(zip(phrases, weights)):
+            phrase_end = end if index == len(phrases) - 1 else cursor + (end - start) * weight / total_weight
+            semantic_phrases.append({
+                **line,
+                "text": phrase,
+                "start": cursor,
+                "end": phrase_end,
+                "semantic_phrase": True,
+            })
+            cursor = phrase_end
+
+    aligned_phrases = align_voiceover_lines_to_audio_pauses(
+        semantic_phrases, audio_path, audio_end,
+    )
+    # A semantic phrase is the smallest unit that the TTS actually performed.
+    # Display layout may shrink the font, but must not invent a pause inside it.
+    return aligned_phrases
 
 
 def _get_audio_duration(audio_path: Path) -> float:
@@ -1331,6 +1350,11 @@ def align_subtitles_to_voiceover(
     for index, spoken in enumerate(voiceover_subs):
         segment = int(spoken.get("segment", index))
         merged = dict(styles_by_segment.get(segment, {}))
+        merged.update({
+            key: value
+            for key, value in spoken.items()
+            if key not in {"text", "start", "end", "segment"}
+        })
         merged.update({
             "text": str(spoken.get("text") or ""),
             "start": float(spoken["start"]),

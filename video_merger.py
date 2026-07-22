@@ -164,23 +164,26 @@ def _split_single_line_text(text: str, max_units: int) -> List[str]:
     cleaned = re.sub(r"\s+", "", str(text or "").replace("\\N", "").replace("\n", ""))
     if not cleaned:
         return []
+    def display_units(value: str) -> float:
+        return _subtitle_units(strip_subtitle_punctuation(value))
+
     phrases = [part for part in re.split(r"(?<=[，。！？；、：,.!?;:])", cleaned) if part]
     chunks: List[str] = []
     current = ""
     for phrase in phrases:
-        if _subtitle_units(current + phrase) <= max_units:
+        if display_units(current + phrase) <= max_units:
             current += phrase
             continue
         if current:
             chunks.append(current)
             current = ""
-        if _subtitle_units(phrase) > max_units:
-            total_units = _subtitle_units(phrase)
+        if display_units(phrase) > max_units:
+            total_units = display_units(phrase)
             parts_needed = max(2, math.ceil(total_units / max_units))
             remaining = phrase
             for part_index in range(parts_needed - 1):
                 remaining_parts = parts_needed - part_index
-                target = _subtitle_units(remaining) / remaining_parts
+                target = display_units(remaining) / remaining_parts
                 word_boundaries = _native_word_boundaries(remaining)
                 candidates = range(1, len(remaining))
                 cut = min(
@@ -206,7 +209,11 @@ def prepare_single_line_subtitles(
     """Split timed speech into readable, strictly single-line caption phrases."""
     prepared: List[Dict[str, Any]] = []
     for subtitle in subtitles:
-        spoken_chunks = _split_single_line_text(subtitle.get("text", ""), max_units)
+        spoken_chunks = (
+            [str(subtitle.get("text") or "")]
+            if subtitle.get("semantic_phrase")
+            else _split_single_line_text(subtitle.get("text", ""), max_units)
+        )
         chunks = [
             display
             for chunk in spoken_chunks

@@ -5770,6 +5770,7 @@ def run_generation_pipeline(
                 int(segment["index"]): float(segment["duration"])
                 for segment in rhythm_template["segments"]
             },
+            narrative_plan_override=local_story_contract["narrative_plan"],
             narration_contract={
                 "voice": voice,
                 "rate": _script_voice_rate,
@@ -7853,12 +7854,6 @@ def run_generation_pipeline(
             if outro_voiceover_subs:
                 _outro_voice_start = float(outro_voiceover_subs[0]["start"])
             subtitles = align_subtitles_to_voiceover(subtitles, main_voiceover_subs)
-            if local_asset_mode and local_one_take_timeline:
-                subtitles = [
-                    dict(item)
-                    for item in local_one_take_timeline["voiceover_lines"]
-                    if not item.get("is_outro")
-                ]
             voiceover_enabled = True
             _defer_full_voiceover_mix = bool(_reference_outro)
             if postproduction_contract:

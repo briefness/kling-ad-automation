@@ -3101,6 +3101,13 @@ class TestPostProcessingP0Fixes:
             for phrase in phrases:
                 assert any(phrase in chunk for chunk in chunks), (text, chunks, phrase)
 
+    def test_single_line_capacity_ignores_punctuation_removed_from_display(self):
+        from video_merger import _split_single_line_text
+
+        phrase = "都是当日现做的新鲜面包，"
+
+        assert _split_single_line_text(phrase, 11) == [phrase]
+
     def test_subtitle_animation_is_selected_per_narrative(self):
         """口播不能强制全片打字机，动画应按每段叙事用途确定。"""
         from video_merger import choose_subtitle_animation
@@ -3282,6 +3289,132 @@ class TestPostProcessingP0Fixes:
 
         assert result["supported"] is True
         assert post.call_count == 2
+
+    def test_window_analysis_reads_streamed_json(self, tmp_path):
+        """视觉分析应流式接收复杂响应，避免等待完整响应时触发读取超时。"""
+        import json
+        from PIL import Image
+        from local_asset_pipeline import VisionAnalyzer
+
+        analysis = {
+            "shot_type": "static",
+            "narrative_roles": ["product_showcase"],
+            "visible_subjects": ["product"],
+            "product_story_role": "finished_product",
+            "product_visibility": 5,
+            "confidence": 0.96,
+            "evidence": "瓶装产品位于画面中央",
+        }
+        content = json.dumps(analysis, ensure_ascii=False)
+
+        class StreamResponse:
+            status_code = 200
+            headers = {"x-request-id": "request-stream-ok"}
+
+            def raise_for_status(self):
+                return None
+
+            def iter_lines(self, decode_unicode=False):
+                midpoint = len(content) // 2
+                for chunk in (content[:midpoint], content[midpoint:]):
+                    event = {"choices": [{"delta": {"content": chunk}}]}
+                    event_json = json.dumps(event, ensure_ascii=False)
+                    event_midpoint = len(event_json) // 2
+                    yield "data: " + event_json[:event_midpoint]
+                    yield "data: " + event_json[event_midpoint:]
+                yield "data: [DONE]"
+
+            def close(self):
+                return None
+
+        sheet = tmp_path / "sheet.jpg"
+        Image.new("RGB", (32, 32), "white").save(sheet)
+
+        with patch("local_asset_pipeline.requests.post", return_value=StreamResponse()) as post:
+            result = VisionAnalyzer().analyze_window(sheet, {"frame_count": 2})
+
+        assert result["product_story_role"] == "finished_product"
+        assert result["evidence"] == "瓶装产品位于画面中央"
+        assert post.call_args.kwargs["stream"] is True
+        assert post.call_args.kwargs["json"]["stream"] is True
+
+    def test_window_analysis_retries_read_timeout_then_succeeds(self, tmp_path):
+        """可恢复的读取超时只做有界重试，成功响应仍被正常使用。"""
+        import json
+        from PIL import Image
+        from local_asset_pipeline import VisionAnalyzer
+
+        class StreamResponse:
+            status_code = 200
+            headers = {"x-request-id": "request-after-timeout"}
+
+            def raise_for_status(self):
+                return None
+
+            def iter_lines(self, decode_unicode=False):
+                content = json.dumps({
+                    "shot_type": "static",
+                    "product_story_role": "ingredient",
+                    "confidence": 0.9,
+                    "evidence": "散装叶片位于托盘中",
+                }, ensure_ascii=False)
+                yield "data: " + json.dumps({
+                    "choices": [{"delta": {"content": content}}],
+                }, ensure_ascii=False)
+                yield ""
+                yield "data: [DONE]"
+                yield ""
+
+            def close(self):
+                return None
+
+        sheet = tmp_path / "sheet.jpg"
+        Image.new("RGB", (32, 32), "white").save(sheet)
+
+        with patch(
+            "local_asset_pipeline.requests.post",
+            side_effect=[requests.exceptions.ReadTimeout("slow first byte"), StreamResponse()],
+        ) as post, patch("local_asset_pipeline.time.sleep"):
+            result = VisionAnalyzer().analyze_window(sheet, {"frame_count": 2})
+
+        assert result["product_story_role"] == "ingredient"
+        assert post.call_count == 2
+
+    def test_window_analysis_does_not_retry_nonrecoverable_http_error(self, tmp_path):
+        """鉴权或参数错误必须立即失败，不能伪装成可恢复的服务拥塞。"""
+        from PIL import Image
+        from local_asset_pipeline import LocalAssetError, VisionAnalyzer
+
+        response = requests.Response()
+        response.status_code = 400
+        response.url = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+        response._content = b'{"error":{"message":"invalid request"}}'
+        response._content_consumed = True
+        sheet = tmp_path / "sheet.jpg"
+        Image.new("RGB", (32, 32), "white").save(sheet)
+
+        with patch("local_asset_pipeline.requests.post", return_value=response) as post, \
+             pytest.raises(LocalAssetError, match="视觉分析失败"):
+            VisionAnalyzer().analyze_window(sheet, {"frame_count": 2})
+
+        assert post.call_count == 1
+
+    def test_window_analysis_still_fails_after_transient_retries_are_exhausted(self, tmp_path):
+        """所有流式重试都失败时必须阻断整条素材理解任务。"""
+        from PIL import Image
+        from local_asset_pipeline import LocalAssetError, VisionAnalyzer
+
+        sheet = tmp_path / "sheet.jpg"
+        Image.new("RGB", (32, 32), "white").save(sheet)
+
+        with patch(
+            "local_asset_pipeline.requests.post",
+            side_effect=requests.exceptions.ReadTimeout("no stream data"),
+        ) as post, patch("local_asset_pipeline.time.sleep"), \
+             pytest.raises(LocalAssetError, match="视觉分析失败"):
+            VisionAnalyzer().analyze_window(sheet, {"frame_count": 2})
+
+        assert post.call_count == 3
 
     def test_segment_validator_treats_voiceover_as_text_claims(self):
         """口播按营销事实校验，不能因声音不可见或不是画面复述而失败。"""
@@ -3921,14 +4054,14 @@ class TestPostProcessingP0Fixes:
         shape = prompt["json_shape"]["creative_candidates"][0]["segments"][0]
         assert shape["segment"] == 0
         assert shape["cue"] == "connected spoken copy grounded in referenced evidence"
-        assert "desired_story_role" in shape
+        assert "desired_story_role" not in shape
         assert "visual_query" in shape
         assert shape["evidence_refs"] == ["allowed evidence id"]
         assert shape["claims"] == []
         assert prompt["viral_creative_blueprint"]["candidate_strategy"]["count"] == 3
         assert prompt["segment_contracts"][0]["copy_goal"] == "制造产品好奇"
-        assert "不作为口播事实来源" in prompt["copywriting_brief"]["material_role"]
-        assert "销售逻辑" in prompt["copywriting_brief"]["transformation"]
+        assert "具体事实只取可信产品资料" in prompt["copywriting_brief"]["material_role"]
+        assert "购买理由" in prompt["copywriting_brief"]["transformation"]
 
     def test_reference_sales_copy_drives_style_without_becoming_product_facts(self):
         import json
@@ -4047,7 +4180,7 @@ class TestPostProcessingP0Fixes:
         assert _normalize_compact_script_response(response, 2) is True
         assert response["voiceover_cues"] == ["这瓶茶咖你试过吗？", "瓶装现成想喝更省事。"]
 
-    def test_unverified_source_context_does_not_ask_copy_to_invent_quality(self):
+    def test_unverified_source_context_translates_context_without_inventing_quality(self):
         from local_asset_pipeline import _build_coverage_driven_narrative_plan
 
         materials = [
@@ -4091,8 +4224,9 @@ class TestPostProcessingP0Fixes:
         plan = _build_coverage_driven_narrative_plan(materials, 3, False)
         source = next(item for item in plan if item["product_story_role"] == "origin")
 
-        assert "不要解释该镜头" in source["copy_goal"]
-        assert "不得推导品质" in source["copy_goal"]
+        assert "转译成消费者能理解的购买理由" in source["copy_goal"]
+        assert "不得虚构具体地名" in source["copy_goal"]
+        assert "品质结论" in source["copy_goal"]
 
     def test_external_cta_is_authored_inside_the_same_full_narration(self):
         from local_asset_pipeline import (
@@ -5920,6 +6054,49 @@ class TestReferenceAdAnalysis:
         assert [item["end"] for item in aligned] == pytest.approx([1.9, 3.8, 6.0])
         assert all(item["segment"] == 0 for item in aligned)
 
+    def test_one_take_subtitle_keeps_semantic_phrase_at_measured_pause(self, tmp_path):
+        import tts_client
+
+        audio = tmp_path / "voice.m4a"
+        audio.write_bytes(b"audio")
+        long_phrase = "都是当天现做的多种新鲜手工面包，"
+        lines = [{
+            "text": f"这家开在路边的面包摊，{long_phrase}分装干净拿取方便。",
+            "start": 0.0,
+            "end": 6.0,
+            "segment": 0,
+        }]
+        with patch.object(
+            tts_client,
+            "_detect_audio_alignment",
+            return_value={
+                "speech_start": 0.0,
+                "speech_end": 6.0,
+                "pauses": [(1.8, 2.0), (3.7, 3.9)],
+            },
+        ):
+            aligned = tts_client.split_and_align_voiceover_subtitles(
+                lines, audio, 6.0, max_units=11,
+            )
+
+        assert [item["text"] for item in aligned] == [
+            "这家开在路边的面包摊，",
+            long_phrase,
+            "分装干净拿取方便。",
+        ]
+        assert aligned[1]["end"] == pytest.approx(3.8)
+        assert all(item["semantic_phrase"] is True for item in aligned)
+
+    def test_local_one_take_keeps_tts_aligned_subtitles_as_timing_source(self):
+        source = Path("one_click_create.py").read_text(encoding="utf-8")
+        alignment_block = source[
+            source.index("subtitles = align_subtitles_to_voiceover("):
+            source.index("subtitles = optimize_subtitles_for_douyin(")
+        ]
+
+        assert "subtitles = align_subtitles_to_voiceover(subtitles, main_voiceover_subs)" in alignment_block
+        assert 'local_one_take_timeline["voiceover_lines"]' not in alignment_block
+
     def test_voiceover_trailing_silence_blocks_publishable_output(self, tmp_path):
         import tts_client
 
@@ -6096,6 +6273,44 @@ class TestReferenceAdAnalysis:
         aligned = align_subtitles_to_voiceover(subtitles, voiceover)
 
         assert aligned == [{"text": "想喝点有风味又没负担的，就看这一瓶。", "start": 4.0, "end": 7.0, "segment": 2}]
+
+    def test_voiceover_alignment_preserves_semantic_phrase_provenance(self):
+        from tts_client import align_subtitles_to_voiceover
+
+        aligned = align_subtitles_to_voiceover(
+            [{"text": "旧字幕", "start": 0.0, "end": 2.0, "segment": 1}],
+            [{
+                "text": "这款瓶装茶咖太适合你的需求了。",
+                "start": 0.0,
+                "end": 2.0,
+                "segment": 1,
+                "semantic_phrase": True,
+                "alignment_precision": "measured_audio_pause",
+            }],
+        )
+
+        assert aligned[0]["semantic_phrase"] is True
+        assert aligned[0]["alignment_precision"] == "measured_audio_pause"
+
+    def test_semantic_phrase_is_not_resplit_by_single_line_renderer(self):
+        from video_merger import prepare_single_line_subtitles
+
+        result = prepare_single_line_subtitles([{
+            "text": "这款瓶装茶咖太适合你的需求了。",
+            "start": 0.0,
+            "end": 2.0,
+            "segment": 1,
+            "semantic_phrase": True,
+        }], max_units=11)
+
+        assert result == [{
+            "text": "这款瓶装茶咖太适合你的需求了",
+            "start": 0.0,
+            "end": 2.0,
+            "segment": 1,
+            "semantic_phrase": True,
+            "highlight": [],
+        }]
 
     def test_subtitle_copy_removes_all_punctuation_before_single_line_split(self):
         from video_merger import prepare_single_line_subtitles
@@ -6994,7 +7209,7 @@ class TestReferenceAdAnalysis:
 
         assert generate.call_count == 1
         assert record.call_count == 0
-        assert result["generation_order"].endswith("then_shot_matching")
+        assert result["generation_order"].endswith("same_role_shot_matching")
         assert all("asset_window_ids" not in segment for segment in result["segments"])
 
     def test_removed_semantic_repair_does_not_make_a_second_remote_call(self):
@@ -7529,6 +7744,131 @@ class TestGlobalMaterialDrivenScriptArchitecture:
             for anchor in pool["evidence_anchors"]
         )
 
+    def test_material_story_plan_is_the_single_role_source_for_copy_and_shot_intent(self, tmp_path):
+        import json
+        from unittest.mock import patch
+        from local_asset_pipeline import build_material_constrained_script
+
+        def window(window_id, role, objects, actions):
+            return {
+                "window_id": window_id,
+                "source_video": f"{window_id}.mp4",
+                "source_path": str(tmp_path / f"{window_id}.mp4"),
+                "start": 0.0,
+                "end": 3.0,
+                "duration": 3.0,
+                "analysis": {
+                    "usable_for_ad": True,
+                    "confidence": 0.95,
+                    "product_story_role": role,
+                    "product_relevance_prior": "high",
+                    "visible_objects": objects,
+                    "literal_actions": actions,
+                    "visible_text": [],
+                    "narrative_roles": ["hook", "product_showcase", "cta"],
+                },
+                "motion": {"motion_class": "semi_dynamic"},
+                "frame_quality": {"passed": True},
+            }
+
+        asset_index = {
+            "asset_folder": str(tmp_path / "assets"),
+            "windows": [
+                window("origin-window", "origin", ["山地茶园"], ["茶树随风摆动"]),
+                window("product-window", "finished_product", ["瓶装茶咖"], ["瓶身缓慢转动"]),
+            ],
+            "coverage": {},
+        }
+        narrative_plan = [
+            {
+                "segment": 0,
+                "narrative": "hook",
+                "marketing_intent": "hook",
+                "copy_goal": "从产地环境建立产品好奇心",
+                "product_story_role": "origin",
+                "asset_window_ids": ["origin-window"],
+            },
+            {
+                "segment": 1,
+                "narrative": "cta",
+                "marketing_intent": "cta",
+                "copy_goal": "回到成品自然邀请了解",
+                "product_story_role": "finished_product",
+                "asset_window_ids": ["product-window"],
+            },
+        ]
+        conflicting_candidate = {
+            "segments": [
+                {
+                    "segment": 0,
+                    "marketing_intent": "hook",
+                    "cue": "这瓶茶咖为什么让人想多看一眼？",
+                    "evidence_refs": ["product:name"],
+                    "claims": [],
+                    "desired_story_role": "finished_product",
+                    "visual_query": ["瓶装茶咖"],
+                },
+                {
+                    "segment": 1,
+                    "marketing_intent": "hook",
+                    "cue": "想换个新搭配就去了解一下。",
+                    "evidence_refs": ["product:name"],
+                    "claims": [],
+                    "desired_story_role": "origin",
+                    "visual_query": ["山地茶园"],
+                },
+            ],
+        }
+
+        with patch("config.LLM_ENABLED", True), \
+             patch(
+                 "llm_client.generate_json",
+                 return_value=creative_candidates(
+                     conflicting_candidate,
+                     conflicting_candidate,
+                     conflicting_candidate,
+                 ),
+             ) as generate, \
+             patch("local_asset_pipeline.LOCAL_ASSET_INDEX_PATH", tmp_path):
+            script = build_material_constrained_script(
+                product_info={"name": "茶咖", "type": "食品"},
+                coverage={},
+                num_segments=2,
+                script_style="demonstration",
+                asset_index=asset_index,
+                segment_durations={0: 3.0, 1: 3.0},
+                narrative_plan_override=narrative_plan,
+            )
+
+        prompt_text = generate.call_args.args[0]
+        prompt = json.loads(prompt_text)
+        assert [item["product_story_role"] for item in prompt["segment_contracts"]] == [
+            "origin",
+            "finished_product",
+        ]
+        assert "origin-window" not in prompt_text
+        assert "product-window" not in prompt_text
+        assert [item["desired_product_story_role"] for item in script["segments"]] == [
+            "origin",
+            "finished_product",
+        ]
+        assert script["segments"][0]["visual_story_role"] == "origin"
+        assert script["segments"][0]["narrative"] == "hook"
+        assert script["segments"][0]["visual_query"] == ["山地茶园", "茶树随风摆动"]
+        assert script["segments"][1]["visual_story_role"] == "finished_product"
+        assert script["segments"][1]["marketing_intent"] == "cta"
+        assert script["segments"][1]["narrative"] == "cta"
+        assert script["segments"][1]["visual_query"] == ["瓶装茶咖", "瓶身缓慢转动"]
+
+    def test_one_click_passes_dynamic_material_story_plan_to_copy_generation(self):
+        source = Path("one_click_create.py").read_text(encoding="utf-8")
+        call = source[
+            source.index("ad_script = build_material_constrained_script("):
+            source.index("else:\n        ad_script = generate_ad_script", source.index("ad_script = build_material_constrained_script("))
+        ]
+
+        assert 'narrative_plan_override=local_story_contract["narrative_plan"]' in call
+
     def test_script_generation_has_no_prebound_window_and_planner_binds_afterward(self, tmp_path):
         import json
         from unittest.mock import patch
@@ -7621,7 +7961,7 @@ class TestGlobalMaterialDrivenScriptArchitecture:
         assert "usage-window" not in prompt_text
         assert "wrong-prebound-window" not in prompt_text
         assert all("asset_window_ids" not in segment for segment in script["segments"])
-        assert script["generation_order"] == "video_timeline_then_sales_copy_then_semantic_inference_then_shot_matching"
+        assert script["generation_order"] == "material_story_plan_then_sales_copy_then_same_role_shot_matching"
 
         result = plan_and_materialize_local_clips(
             asset_index=asset_index,

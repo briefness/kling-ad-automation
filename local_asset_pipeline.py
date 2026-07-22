@@ -60,7 +60,7 @@ SCENE_CHANGE_THRESHOLD = 0.28
 MIN_SCENE_SECONDS = 1.0
 MOTION_SAMPLE_FRAMES = 12
 MAX_INITIAL_SCRIPT_JSON_ATTEMPTS = 3
-SCRIPT_CONTRACT_VERSION = 49
+SCRIPT_CONTRACT_VERSION = 50
 MIN_VOICEOVER_UNITS_PER_SECOND = 4.2
 MIN_OUTRO_VOICEOVER_UNITS_PER_SECOND = 4.4
 MAX_OUTRO_VOICEOVER_UNITS_PER_SECOND = 5.4
@@ -625,6 +625,76 @@ def _json_from_text(text: str) -> Dict[str, Any]:
     return json.loads(cleaned)
 
 
+def _streamed_chat_json(response: requests.Response) -> Dict[str, Any]:
+    """Collect one Chat Completions SSE response and decode its JSON content."""
+    content_parts: List[str] = []
+    decoder = json.JSONDecoder()
+    event_buffer = ""
+
+    def consume_events() -> bool:
+        nonlocal event_buffer
+        while event_buffer.strip():
+            data = event_buffer.lstrip()
+            if data == "[DONE]":
+                event_buffer = ""
+                return True
+            try:
+                event, consumed = decoder.raw_decode(data)
+            except json.JSONDecodeError:
+                return False
+            event_buffer = data[consumed:]
+            if event.get("error"):
+                raise ValueError(f"视觉服务返回错误事件：{event['error']}")
+            choices = event.get("choices") or []
+            if not choices:
+                continue
+            choice = choices[0]
+            message = choice.get("delta") or choice.get("message") or {}
+            content = message.get("content")
+            if isinstance(content, str):
+                content_parts.append(content)
+            elif isinstance(content, list):
+                content_parts.extend(
+                    str(item.get("text") or "")
+                    for item in content
+                    if isinstance(item, dict) and item.get("text")
+                )
+        return False
+
+    done = False
+    for raw_line in response.iter_lines(decode_unicode=True):
+        line = raw_line.decode("utf-8") if isinstance(raw_line, bytes) else str(raw_line or "")
+        if not line.strip() or line.startswith(":"):
+            continue
+        payload = line[5:].lstrip() if line.startswith("data:") else line.strip()
+        event_buffer += payload
+        done = consume_events()
+        if done:
+            break
+    if not done:
+        consume_events()
+    if event_buffer.strip() and not done:
+        raise ValueError("视觉服务流式响应包含未完成 JSON 事件")
+    if not content_parts:
+        raise ValueError("视觉服务流式响应没有返回可解析内容")
+    return _json_from_text("".join(content_parts))
+
+
+def _chat_response_json(response: requests.Response) -> Dict[str, Any]:
+    """Read a streamed response, while retaining compatibility with test doubles and legacy gateways."""
+    if hasattr(response, "iter_lines"):
+        return _streamed_chat_json(response)
+    data = response.json()
+    return _json_from_text(data["choices"][0]["message"]["content"])
+
+
+def _is_retryable_vision_error(exc: Exception) -> bool:
+    """Retry transient transport/server failures, but fail fast on bad requests or auth."""
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        return exc.response.status_code in {408, 409, 425, 429} or exc.response.status_code >= 500
+    return isinstance(exc, (requests.RequestException, json.JSONDecodeError, ValueError, KeyError))
+
+
 def _nonvisual_claims_by_field(segment: Dict[str, Any]) -> Dict[str, List[str]]:
     """Return sensory, emotional and effect claims that pixels cannot prove."""
     violations: Dict[str, List[str]] = {}
@@ -1176,6 +1246,7 @@ def _script_checkpoint_context(
     segment_durations: Optional[Dict[int, float]] = None,
     user_policy_fingerprint: str = "",
     narration_contract: Optional[Dict[str, Any]] = None,
+    narrative_plan: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[Optional[Path], str]:
     asset_folder = str((asset_index or {}).get("asset_folder") or "")
     if not asset_folder:
@@ -1200,6 +1271,7 @@ def _script_checkpoint_context(
         "script_style": script_style,
         "segment_durations": segment_durations or {},
         "narration_contract": narration_contract or {},
+        "narrative_plan": narrative_plan or [],
         "user_policy_fingerprint": user_policy_fingerprint,
     }
     signature = hashlib.sha256(
@@ -1380,31 +1452,51 @@ Rules:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "Accept": "text/event-stream",
         }
+        payload["stream"] = True
         last_error: Optional[Exception] = None
         for attempt in range(1, VISION_MAX_RETRIES + 2):
             print(
                 f"      视觉理解请求 {attempt}/{VISION_MAX_RETRIES + 1} "
-                f"（单次读取上限 {VISION_TIMEOUT}s）",
+                f"（连续无响应数据上限 {VISION_TIMEOUT}s）",
                 flush=True,
             )
+            response: Optional[requests.Response] = None
+            started_at = time.monotonic()
             try:
                 response = requests.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
                     json=payload,
                     timeout=(10, VISION_TIMEOUT),
+                    stream=True,
                 )
                 response.raise_for_status()
-                data = response.json()
-                content = data["choices"][0]["message"]["content"]
-                parsed = _json_from_text(content)
+                parsed = _streamed_chat_json(response)
                 return _normalize_analysis(parsed)
             except Exception as exc:
                 last_error = exc
-                if attempt <= VISION_MAX_RETRIES:
-                    print(f"      视觉理解失败，将重试：{exc}", flush=True)
-                    time.sleep(min(2 * attempt, 6))
+                elapsed = time.monotonic() - started_at
+                request_id = ""
+                if response is not None:
+                    request_id = response.headers.get("x-request-id") or response.headers.get("x-tt-logid") or ""
+                retryable = _is_retryable_vision_error(exc)
+                if retryable and attempt <= VISION_MAX_RETRIES:
+                    wait_seconds = min(2 ** attempt, 8)
+                    request_suffix = f"，request_id={request_id}" if request_id else ""
+                    print(
+                        f"      视觉理解失败（{type(exc).__name__}，耗时 {elapsed:.1f}s{request_suffix}），"
+                        f"{wait_seconds}s 后重试：{exc}",
+                        flush=True,
+                    )
+                    time.sleep(wait_seconds)
+                    continue
+                break
+            finally:
+                if response is not None:
+                    with contextlib.suppress(Exception):
+                        response.close()
         raise LocalAssetError(f"视觉分析失败：{sheet_path.name} ({last_error})")
 
     def analyze_reference_ad(self, sheet_path: Path, metadata: Dict[str, Any]) -> Dict[str, Any]:
@@ -1460,22 +1552,32 @@ metadata: {json.dumps(metadata, ensure_ascii=False)}
             "response_format": {"type": "json_object"},
         }
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        headers["Accept"] = "text/event-stream"
+        payload["stream"] = True
         last_error: Optional[Exception] = None
         for attempt in range(1, VISION_MAX_RETRIES + 2):
+            response: Optional[requests.Response] = None
             try:
                 response = requests.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
                     json=payload,
                     timeout=VISION_TIMEOUT,
+                    stream=True,
                 )
                 response.raise_for_status()
-                raw = _json_from_text(response.json()["choices"][0]["message"]["content"])
+                raw = _chat_response_json(response)
                 return _normalize_reference_profile(raw, metadata)
             except Exception as exc:
                 last_error = exc
-                if attempt <= VISION_MAX_RETRIES:
+                if _is_retryable_vision_error(exc) and attempt <= VISION_MAX_RETRIES:
                     time.sleep(min(2 * attempt, 6))
+                else:
+                    break
+            finally:
+                if response is not None:
+                    with contextlib.suppress(Exception):
+                        response.close()
         raise LocalAssetError(f"参考广告分析失败：{sheet_path.name} ({last_error})")
 
     def validate_segment(
@@ -1610,17 +1712,21 @@ metadata: {json.dumps(metadata, ensure_ascii=False)}
             "response_format": {"type": "json_object"},
         }
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+        headers["Accept"] = "text/event-stream"
+        payload["stream"] = True
         last_error: Optional[Exception] = None
         for attempt in range(1, VISION_MAX_RETRIES + 2):
+            response: Optional[requests.Response] = None
             try:
                 response = requests.post(
                     f"{self.base_url}/chat/completions",
                     headers=headers,
                     json=payload,
                     timeout=VISION_TIMEOUT,
+                    stream=True,
                 )
                 response.raise_for_status()
-                raw = _json_from_text(response.json()["choices"][0]["message"]["content"])
+                raw = _chat_response_json(response)
                 required_boolean_fields = {
                     "supported",
                     "subtitle_supported",
@@ -1674,8 +1780,14 @@ metadata: {json.dumps(metadata, ensure_ascii=False)}
                 }
             except Exception as exc:
                 last_error = exc
-                if attempt <= VISION_MAX_RETRIES:
+                if _is_retryable_vision_error(exc) and attempt <= VISION_MAX_RETRIES:
                     time.sleep(min(2 * attempt, 6))
+                else:
+                    break
+            finally:
+                if response is not None:
+                    with contextlib.suppress(Exception):
+                        response.close()
         raise LocalAssetError(f"脚本与素材视觉语义校验失败：{sheet_path.name} ({last_error})")
 
 
@@ -2731,8 +2843,8 @@ def _build_coverage_driven_narrative_plan(
             narrative = "source_context"
             intent = "value"
             copy_goal = (
-                "该镜头只承接视觉节奏；不要解释该镜头，不得推导品质或产品关系；"
-                "口播跨镜承接上一购买逻辑，或用当前产品已知信息推进一个消费者理由"
+                "将当前产品相关的原料、产地或生产情境转译成消费者能理解的购买理由；"
+                "不得虚构具体地名、配方比例、品质结论或功效"
             )
         elif role == "usage":
             narrative = "usage_demo"
@@ -2964,14 +3076,29 @@ def _semantic_copy_constraints(
     num_segments: int,
     segment_durations: Dict[int, float],
     external_cta: bool,
+    narrative_plan: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Create sales-beat slots from global capabilities, never from selected windows."""
+    """Create sales beats from the material story plan without exposing window IDs."""
+    plan_by_index = {
+        int(item.get("segment")): item
+        for item in narrative_plan or []
+        if isinstance(item, dict) and str(item.get("segment", "")).isdigit()
+    }
+    capabilities_by_role = {
+        str(item.get("role") or "").strip().lower(): item
+        for item in capability_pool.get("role_capabilities") or []
+        if str(item.get("role") or "").strip()
+    }
     constraints: Dict[str, Dict[str, Any]] = {}
     for index in range(num_segments):
+        plan_item = plan_by_index.get(index) or {}
         is_first = index == 0
         is_last = index == num_segments - 1
-        intent = "hook" if is_first else "value" if is_last and external_cta else "cta" if is_last else "value"
-        goal = (
+        default_intent = "hook" if is_first else "value" if is_last and external_cta else "cta" if is_last else "value"
+        intent = str(plan_item.get("marketing_intent") or default_intent).strip().lower()
+        if intent not in MARKETING_INTENTS:
+            intent = default_intent
+        default_goal = (
             "建立具体的消费者悬念或选择冲突，让人愿意继续听"
             if is_first else
             "完成最后一个购买理由并自然承接独立 CTA 尾声"
@@ -2980,11 +3107,23 @@ def _semantic_copy_constraints(
             if is_last else
             "从可信产品事实中选择新信息，把它转成购买理由并推进整篇口播"
         )
+        goal = str(plan_item.get("copy_goal") or default_goal).strip()
+        role = str(plan_item.get("product_story_role") or "").strip().lower()
+        capability = capabilities_by_role.get(role) or {}
+        visual_capability = {
+            "role": role,
+            "visual_concepts": list(capability.get("visual_concepts") or [])[:8],
+            "literal_actions": list(capability.get("literal_actions") or [])[:6],
+            "visible_text": list(capability.get("visible_text") or [])[:6],
+        } if role else {}
         constraints[str(index)] = {
             "segment": index,
+            "narrative": str(plan_item.get("narrative") or "").strip(),
             "segment_duration": round(float(segment_durations.get(index) or 0.0), 3),
             "marketing_intent": intent,
             "copy_goal": goal,
+            "product_story_role": role,
+            "visual_capability": visual_capability,
             "evidence_anchors": [],
             "evidence_scope": "trusted_product_facts_only",
             "relation_boundary": "具体产地原料工艺功效必须来自可信产品资料",
@@ -3032,14 +3171,17 @@ def _build_compact_script_prompt(
                 if str(item.get("id", "")).rsplit(":", 1)[-1].isdigit() else 0,
             ),
         )[:6]
-        segment_contracts.append({
+        segment_contract = {
             field: constraint.get(field)
             for field in (
                 "segment", "marketing_intent", "copy_goal", "evidence_anchors",
                 "claims_rule", "evidence_scope", "relation_boundary",
+                "narrative", "product_story_role", "visual_capability",
             )
-        })
-        segment_contracts[-1]["evidence_anchors"] = ranked_anchors
+            if constraint.get(field) not in (None, "", [], {})
+        }
+        segment_contract["evidence_anchors"] = ranked_anchors
+        segment_contracts.append(segment_contract)
     outro_contract = None
     if external_cta:
         outro_contract = {
@@ -3122,10 +3264,10 @@ def _build_compact_script_prompt(
         }
 
     return {
-        "task": "基于可信产品事实、参考片创作机制和使用者反馈创作连续带货口播",
+        "task": "基于素材角色、可信事实、参考片机制和使用者反馈创作连续带货口播",
         "copywriting_brief": {
-            "material_role": "视频素材决定成片时长、段数和可用视觉能力，但不作为口播事实来源",
-            "transformation": "先形成消费者愿意继续听的销售逻辑，再为每个 cue 从全局视觉能力中提取不可播出的匹配意图",
+            "material_role": "素材决定时间轴和每段视觉角色；可见情境提供销售语境，具体事实只取可信产品资料",
+            "transformation": "在既定素材角色下写购买理由，不解说镜头",
             "reference_usage": "只迁移句式节奏和销售推进，不复制实体或事实",
             "information_density": "每个 cue 只推进一个新信息，不复述镜头对象，不用过场填充句",
             "narrative_voice": "像真人直接向消费者种草，不使用导演解说、看图说话或参观导览口吻",
@@ -3135,10 +3277,8 @@ def _build_compact_script_prompt(
             "每段返回一个语义节拍和 cue，按 segment 顺序拼接为一条连续口播",
             "各 cue 只作语义锚点，不按镜头限字；narration_guidance 仅为非阻断性精炼建议",
             "只引用全局 evidence_anchors id，不得虚构事实或感官",
-            (
-                "cue 只写购买理由与信息推进，不解说画面；desired_story_role 和 visual_query "
-                "只用于后续素材匹配，必须来自 visual_capabilities，不能包含素材 ID 或文件名"
-            ),
+            "product_story_role 由素材理解确定，不得改写",
+            "cue 只推进购买理由；visual_query 只能取本段 visual_capability，不得含素材 ID 或文件名",
             "cue 可跨段成句，标点供单次 TTS 断句",
             "返回三个不同候选；差异方向由素材、script_style、参考片观察和使用者规则决定",
             (
@@ -3188,8 +3328,7 @@ def _build_compact_script_prompt(
                 "cue": "connected spoken copy grounded in referenced evidence",
                 "evidence_refs": ["allowed evidence id"],
                 "claims": [],
-                "desired_story_role": "one role from visual_capabilities or empty",
-                "visual_query": ["objects actions or visible text from visual_capabilities"],
+                "visual_query": ["items from this segment visual_capability"],
             }],
             **({"outro_cue": "connected CTA ending containing required_text"} if external_cta else {}),
         }]},
@@ -3372,16 +3511,22 @@ def _materialize_semantic_script_segments(
             for field in [str(anchor.get("id") or "").split(":")[1] if ":" in str(anchor.get("id") or "") else ""]
             if field in field_to_role
         ))
+        contract_role = str(contract.get("product_story_role") or "").strip().lower()
         requested_role = str(copy.get("desired_story_role") or "").strip().lower()
         available_roles = set(capability_pool.get("available_story_roles") or [])
-        desired_role = evidence_roles[0] if len(evidence_roles) == 1 else ""
-        visual_story_role = requested_role if requested_role in available_roles else ""
+        desired_role = contract_role or (evidence_roles[0] if len(evidence_roles) == 1 else "")
+        visual_story_role = (
+            contract_role
+            if contract_role in available_roles
+            else requested_role if requested_role in available_roles else ""
+        )
+        contract_intent = str(contract.get("marketing_intent") or "").strip().lower()
         marketing_intent = str(
-            copy.get("marketing_intent") or contract.get("marketing_intent") or "value"
+            contract_intent or copy.get("marketing_intent") or "value"
         ).strip().lower()
         if marketing_intent not in MARKETING_INTENTS:
             marketing_intent = "value"
-        narrative = (
+        derived_narrative = (
             "hook" if marketing_intent == "hook" else
             "cta" if marketing_intent == "cta" else
             "usage_demo" if desired_role == "usage" else
@@ -3390,6 +3535,7 @@ def _materialize_semantic_script_segments(
             "product_showcase" if desired_role == "finished_product" else
             "value"
         )
+        narrative = str(contract.get("narrative") or derived_narrative).strip() or derived_narrative
         evidence_query = list(dict.fromkeys([
             str(anchor.get("text") or "").strip()
             for anchor in referenced_anchors
@@ -3403,6 +3549,17 @@ def _materialize_semantic_script_segments(
             for value in visual_query
             if str(value).strip()
         ))[:6]
+        visual_capability = contract.get("visual_capability") or {}
+        allowed_visual_queries = list(dict.fromkeys(
+            str(value).strip()
+            for field in ("visual_concepts", "literal_actions", "visible_text")
+            for value in visual_capability.get(field) or []
+            if str(value).strip()
+        ))[:6]
+        if contract_role:
+            visual_query = [value for value in visual_query if value in allowed_visual_queries]
+            if not visual_query:
+                visual_query = allowed_visual_queries
         segment = {
             "segment": index,
             "narrative": narrative,
@@ -3511,7 +3668,19 @@ def build_material_constrained_script(
         num_segments,
         provided_durations,
         external_cta,
+        narrative_plan=narrative_plan_override,
     )
+    semantic_narrative_plan = [
+        {
+            "segment": int(item.get("segment")),
+            "narrative": str(item.get("narrative") or ""),
+            "marketing_intent": str(item.get("marketing_intent") or ""),
+            "copy_goal": str(item.get("copy_goal") or ""),
+            "product_story_role": str(item.get("product_story_role") or ""),
+        }
+        for item in narrative_plan_override or []
+        if isinstance(item, dict) and str(item.get("segment", "")).isdigit()
+    ]
     checkpoint_path, checkpoint_signature = _script_checkpoint_context(
         asset_index,
         product_info,
@@ -3520,9 +3689,10 @@ def build_material_constrained_script(
         provided_durations,
         user_policy_fingerprint=str(user_script_policy.get("fingerprint") or ""),
         narration_contract=narration_contract,
+        narrative_plan=semantic_narrative_plan,
     )
     system_prompt = """你是短视频带货广告编导。写完整、精炼、有信息推进的销售口播。
-视频素材已经决定总时长和语义节拍数量，但具体画面由后续剪辑器匹配；不要规划或解说镜头。
+视频素材理解已经决定总时长、语义节拍和每段视觉角色；严格遵守每段合同，不要重新规划或解说镜头。
 只使用可信产品资料表达具体事实。输出严格 JSON，不要解释。"""
     public_capability_pool = {
         "source": capability_pool["source"],
@@ -3674,8 +3844,8 @@ def build_material_constrained_script(
         for segment in segments
     ]
     result["material_capability_pool"] = public_capability_pool
-    result["generation_order"] = "video_timeline_then_sales_copy_then_semantic_inference_then_shot_matching"
-    result["prebound_narrative_plan_ignored"] = bool(narrative_plan_override)
+    result["generation_order"] = "material_story_plan_then_sales_copy_then_same_role_shot_matching"
+    result["material_story_plan_applied"] = bool(narrative_plan_override)
     result.setdefault("title", f"{product_info.get('name', '产品')}真实体验")
     result.setdefault("hashtags", ["#好物推荐", "#真实体验"])
     result["generated_by"] = "local_asset_global_semantic_llm"
