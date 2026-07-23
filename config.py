@@ -160,7 +160,7 @@ DEFAULT_SUBTITLE_TEMPLATE = [
 ]
 
 # BGM 参数
-BGM_VOLUME = 0.6          # BGM 音量比例（纯 BGM 场景推荐 0.5-0.7）
+BGM_VOLUME = 0.55         # BGM 音量比例（纯 BGM 场景推荐 0.5-0.7）
 BGM_VOLUME_VOICEOVER = 0.2  # 口播场景 BGM 基础音量（人声清晰度优先，sidechain 在此基础上额外压低）
 BGM_PATH = "assets/bgm.mp3"  # 相对于项目根目录（本地 fallback，优先级低于 API 选曲）
 BGM_FADE_IN = 1.0  # BGM 淡入时长（秒）
